@@ -61,53 +61,53 @@ task api(type: Javadoc) {
 /**
  * Produce KDoc for all Spring Framework modules in "build/docs/kdoc"
  */
-dokka {
-	dependsOn {
-		tasks.getByName("api")
-	}
-
-	doFirst {
-		configuration {
-			classpath = moduleProjects.collect { project -> project.jar.outputs.files.getFiles() }.flatten()
-			classpath += files(moduleProjects.collect { it.sourceSets.main.compileClasspath })
-
-			moduleProjects.findAll {
-				it.pluginManager.hasPlugin("kotlin")
-			}.each { project ->
-				def kotlinDirs = project.sourceSets.main.kotlin.srcDirs.collect()
-				kotlinDirs -= project.sourceSets.main.java.srcDirs
-				kotlinDirs.each { dir ->
-					if (dir.exists()) {
-						sourceRoot {
-							path = dir.path
-						}
-					}
-				}
-			}
-		}
-	}
-
-	outputFormat = "html"
-	outputDirectory = "$buildDir/docs/kdoc"
-
-	configuration {
-		moduleName = "spring-framework"
-
-		externalDocumentationLink {
-			url = new URL("https://docs.spring.io/spring-framework/docs/$version/javadoc-api/")
-			packageListUrl = new File(buildDir, "docs/javadoc/package-list").toURI().toURL()
-		}
-		externalDocumentationLink {
-			url = new URL("https://projectreactor.io/docs/core/release/api/")
-		}
-		externalDocumentationLink {
-			url = new URL("https://www.reactive-streams.org/reactive-streams-1.0.1-javadoc/")
-		}
-		externalDocumentationLink {
-			url = new URL("https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/")
-		}
-	}
-}
+//dokka {
+//	dependsOn {
+//		tasks.getByName("api")
+//	}
+//
+//	doFirst {
+//		configuration {
+//			classpath = moduleProjects.collect { project -> project.jar.outputs.files.getFiles() }.flatten()
+//			classpath += files(moduleProjects.collect { it.sourceSets.main.compileClasspath })
+//
+//			moduleProjects.findAll {
+//				it.pluginManager.hasPlugin("kotlin")
+//			}.each { project ->
+//				def kotlinDirs = project.sourceSets.main.kotlin.srcDirs.collect()
+//				kotlinDirs -= project.sourceSets.main.java.srcDirs
+//				kotlinDirs.each { dir ->
+//					if (dir.exists()) {
+//						sourceRoot {
+//							path = dir.path
+//						}
+//					}
+//				}
+//			}
+//		}
+//	}
+//
+//	outputFormat = "html"
+//	outputDirectory = "$buildDir/docs/kdoc"
+//
+//	configuration {
+//		moduleName = "spring-framework"
+//
+//		externalDocumentationLink {
+//			url = new URL("https://docs.spring.io/spring-framework/docs/$version/javadoc-api/")
+//			packageListUrl = new File(buildDir, "docs/javadoc/package-list").toURI().toURL()
+//		}
+//		externalDocumentationLink {
+//			url = new URL("https://projectreactor.io/docs/core/release/api/")
+//		}
+//		externalDocumentationLink {
+//			url = new URL("https://www.reactive-streams.org/reactive-streams-1.0.1-javadoc/")
+//		}
+//		externalDocumentationLink {
+//			url = new URL("https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-core/")
+//		}
+//	}
+//}
 
 task downloadResources(type: Download) {
 	def version = "0.2.0.RELEASE"
@@ -136,40 +136,40 @@ asciidoctorj {
  * Produce the Spring Framework Reference documentation
  * from "src/docs/asciidoc" into  "build/asciidoc/html5"
  */
-asciidoctor {
-	baseDirFollowsSourceDir()
-	configurations 'asciidoctorExt'
-	sources {
-		include '*.adoc'
-	}
-	outputDir "$buildDir/docs/ref-docs/"
-	resources {
-		from(sourceDir) {
-			include 'images/*', 'css/**', 'js/**'
-		}
-		from extractDocResources
-	}
-	logDocuments = true
-	outputOptions {
-		backends = ["html5", "pdf"]
-	}
-	options doctype: 'book', eruby: 'erubis'
-	attributes([
-			icons: 'font',
-			idprefix: '',
-			idseparator: '-',
-			docinfo: 'shared',
-			revnumber: project.version,
-			sectanchors: '',
-			sectnums: '',
-			'source-highlighter': 'highlight.js',
-			highlightjsdir: 'js/highlight',
-			'highlightjs-theme': 'github',
-			stylesdir: 'css/',
-			stylesheet: 'stylesheet.css',
-			'spring-version': project.version
-	])
-}
+//asciidoctor {
+//	baseDirFollowsSourceDir()
+//	configurations 'asciidoctorExt'
+//	sources {
+//		include '*.adoc'
+//	}
+//	outputDir "$buildDir/docs/ref-docs/"
+//	resources {
+//		from(sourceDir) {
+//			include 'images/*', 'css/**', 'js/**'
+//		}
+//		from extractDocResources
+//	}
+//	logDocuments = true
+//	outputOptions {
+//		backends = ["html5", "pdf"]
+//	}
+//	options doctype: 'book', eruby: 'erubis'
+//	attributes([
+//			icons: 'font',
+//			idprefix: '',
+//			idseparator: '-',
+//			docinfo: 'shared',
+//			revnumber: project.version,
+//			sectanchors: '',
+//			sectnums: '',
+//			'source-highlighter': 'highlight.js',
+//			highlightjsdir: 'js/highlight',
+//			'highlightjs-theme': 'github',
+//			stylesdir: 'css/',
+//			stylesheet: 'stylesheet.css',
+//			'spring-version': project.version
+//	])
+//}
 
 /**
  * Zip all docs (API and reference) into a single archive
