@@ -94,10 +94,17 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * @see org.springframework.beans.factory.FactoryBean#getObject()
 	 */
 	protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
+		/**
+		 * factorybean 也区分单例和非单例
+		 * 1、单例的 FactoryBean，生成的 bean 实例也是单例的，存入缓存，后面重复使用
+		 * 2、非单例的，生成的 bean 实例不存入缓存，每次用到都会创建。
+		 */
 		if (factory.isSingleton() && containsSingleton(beanName)) {
 			synchronized (getSingletonMutex()) {
+				// 缓存获取
 				Object object = this.factoryBeanObjectCache.get(beanName);
 				if (object == null) {
+					// 没有获取到，使用 factory.getObject() 得到真正的 bean，
 					object = doGetObjectFromFactoryBean(factory, beanName);
 					// Only post-process and store if not put there already during getObject() call above
 					// (e.g. because of circular reference processing triggered by custom getBean calls)
@@ -106,13 +113,16 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 						object = alreadyThere;
 					}
 					else {
+						// 没有在缓存，
 						if (shouldPostProcess) {
+							// 当前 bean 是否正在创建
 							if (isSingletonCurrentlyInCreation(beanName)) {
 								// Temporarily return non-post-processed object, not storing it yet..
 								return object;
 							}
 							beforeSingletonCreation(beanName);
 							try {
+								// bean 被创建了，调用后置处理器，执行 postProcessAfterInitialization 方法
 								object = postProcessObjectFromFactoryBean(object, beanName);
 							}
 							catch (Throwable ex) {
@@ -123,6 +133,9 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 								afterSingletonCreation(beanName);
 							}
 						}
+						/**
+						 * beanName 对应的是 FactoryBean 的实现类，实现类也会被实例化，存入 singletonObjects 中
+						 */
 						if (containsSingleton(beanName)) {
 							this.factoryBeanObjectCache.put(beanName, object);
 						}
@@ -168,6 +181,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 				}
 			}
 			else {
+				// 真正的调用 得到 bean
 				object = factory.getObject();
 			}
 		}

@@ -101,18 +101,21 @@ public abstract class AbstractBeanDefinition extends BeanMetadataAttributeAccess
 
 	/**
 	 * Constant that indicates no dependency check at all.
+	 * 不需要检测依赖
 	 * @see #setDependencyCheck
 	 */
 	public static final int DEPENDENCY_CHECK_NONE = 0;
 
 	/**
 	 * Constant that indicates dependency checking for object references.
+	 * 检查对象引用的依赖
 	 * @see #setDependencyCheck
 	 */
 	public static final int DEPENDENCY_CHECK_OBJECTS = 1;
 
 	/**
 	 * Constant that indicates dependency checking for "simple" properties.
+	 * 简单属性的依赖
 	 * @see #setDependencyCheck
 	 * @see org.springframework.beans.BeanUtils#isSimpleProperty
 	 */
@@ -121,6 +124,7 @@ public abstract class AbstractBeanDefinition extends BeanMetadataAttributeAccess
 	/**
 	 * Constant that indicates dependency checking for all properties
 	 * (object references as well as "simple" properties).
+	 * 对象属性和简单属性都检查依赖
 	 * @see #setDependencyCheck
 	 */
 	public static final int DEPENDENCY_CHECK_ALL = 3;
@@ -136,63 +140,145 @@ public abstract class AbstractBeanDefinition extends BeanMetadataAttributeAccess
 	 * are "close" and "shutdown", if present on the specific bean class.
 	 */
 	public static final String INFER_METHOD = "(inferred)";
-
-
+	
+	
+	/**
+	 * 当前 BeanDefinition 的 beanClass 属性，并不一定是最终生成 bean 所使用的 class，
+	 * 课能是 String，可能是 Class
+	 */
 	@Nullable
 	private volatile Object beanClass;
-
+	
+	/**
+	 * bean 的作用域，初始化为“”，当同于singleton、可选 prototype
+	 */
 	@Nullable
 	private String scope = SCOPE_DEFAULT;
-
+	
+	/**
+	 * 是否是抽象类，抽象类不允许实例化
+	 */
 	private boolean abstractFlag = false;
-
+	
+	/**
+	 * 当前 bean 是否是懒加载
+	 */
 	@Nullable
 	private Boolean lazyInit;
-
+	
+	/**
+	 * 自动装配模式：初始化时为不需要自动装配
+	 * 默认的注入模型是 0，不支持外部注入
+	 */
 	private int autowireMode = AUTOWIRE_NO;
-
+	
+	/**
+	 * 默认的依赖检查模式，初始化不需要
+	 */
 	private int dependencyCheck = DEPENDENCY_CHECK_NONE;
-
+	
+	/**
+	 * bean 实例化，必须要依赖的一些 bean，这些 bean 需要先创建
+	 */
 	@Nullable
 	private String[] dependsOn;
-
+	
+	/**
+	 * 当设置 autowireCandidate = false 的时候，也就是在 bean 节点配置 autowire-candidate="false"时，spring 会忽略当前标记的 bean
+	 * 不进行自动注入。
+	 */
 	private boolean autowireCandidate = true;
-
+	
+	/**
+	 * 当你一个接口的实现类有多个的时候，你通过 @Component 来注册你的实现类，但是我们在使用的时候是
+	 * @Autowired 的方式，而且注入的时候我们一般配置的是注入一个接口，但是 spring 怎么区分你需要的是哪个呢？
+	 * 所以可以在 @Component 时加上 @Primary 注解，这 2 个一起使用，标识告诉 spring 优先注入@Primary标记的那个
+	 * 另外一个方式是，指定 Component 的名称，然后在使用 @autowired 的时候指定她的 name：
+	 * 假设 userService 接口有 2 个实现类，那么使用 Qualifier 的方式：
+	 * @Autowired
+	 * @Qualifier("main")
+	 * xxx UserService userService
+	 * 参考：
+	 * 1、http://www.yihaomen.com/article/java/581.htm
+	 * 2、https://blog.csdn.net/u010475041/article/details/52338342
+	 */
 	private boolean primary = false;
 
 	private final Map<String, AutowireCandidateQualifier> qualifiers = new LinkedHashMap<>();
 
 	@Nullable
 	private Supplier<?> instanceSupplier;
-
+	
+	/**
+	 * 允许访问非 public 的构造方法
+	 */
 	private boolean nonPublicAccessAllowed = true;
-
+	
+	/**
+	 * 是否允许宽松模式来解析构造函数
+	 * 具体参考：
+	 * 1、https://www.cnblogs.com/ninth/p/6339498.html
+	 */
 	private boolean lenientConstructorResolution = true;
-
+	
+	/**
+	 * 假设 bean 的注册方式是通过 @Configuration 下的 @Bean 的方式扫描注册的，
+	 * 那么此属性用于保存那个配置类，比如配置了一个 MyBatisConfig 类，使用 @configuration 注解注入了一个 bean：red
+	 * 那么 red 的 BeanDefinition 就会记录它是从哪里注入的【这里就记录 MybatisConfig】
+	 */
 	@Nullable
 	private String factoryBeanName;
-
+	
+	/**
+	 * 记录标注了 @Bean 的方法的名称
+	 */
 	@Nullable
 	private String factoryMethodName;
-
+	
+	/**
+	 * 构造函数参数的值
+	 */
 	@Nullable
 	private ConstructorArgumentValues constructorArgumentValues;
-
+	
+	/**
+	 * 属性值，使用 MutablePropertyValues，表示这些属性值在最终被设置到 bean 实例之前一直都是可以被修改的。
+	 */
 	@Nullable
 	private MutablePropertyValues propertyValues;
-
+	
+	/**
+	 * 重写属性的集合，用户保存 look-method 和 replace-method
+	 */
 	private MethodOverrides methodOverrides = new MethodOverrides();
-
+	
+	/**
+	 * 指定的 init 的方法名称
+	 */
 	@Nullable
 	private String initMethodName;
-
+	
+	/**
+	 * 指定的 destoryMethod
+	 */
 	@Nullable
 	private String destroyMethodName;
 
 	private boolean enforceInitMethod = true;
 
 	private boolean enforceDestroyMethod = true;
-
+	
+	/**
+	 * 是否是合成的 BeanDefinition
+	 * 合成，在这里的意思表示这不是一个应用开发人员自定义的 BeanDefinition【就是不是开发人员自己手动创建的】，而是程序自己组装的一个 BeanDefinition
+	 * 例子：
+	 * 1、ErrorPageRegistrarBeanPostProcessor ，SpringBoot 中自动配置针对 web 错误页面的一个 bean，这个不是开发人员定义的，是框架合成的。
+	 * 使用的地点：
+	 * 1、org.springframework.beans.factory.support.AbstractBeanFactory#getObjectForBeanInstance
+	 *
+	 * 参考：
+	 * 1、https://blog.csdn.net/andy_zhang2007/article/details/85413055
+	 */
 	private boolean synthetic = false;
 
 	private int role = BeanDefinition.ROLE_APPLICATION;
@@ -1122,7 +1208,9 @@ public abstract class AbstractBeanDefinition extends BeanMetadataAttributeAccess
 	 */
 	public void prepareMethodOverrides() throws BeanDefinitionValidationException {
 		// Check that lookup methods exist and determine their overloaded status.
+		// 判断 MethodOverrides() 存在
 		if (hasMethodOverrides()) {
+			// 循环调用 prepareMethodOverride
 			getMethodOverrides().getOverrides().forEach(this::prepareMethodOverride);
 		}
 	}
@@ -1135,13 +1223,19 @@ public abstract class AbstractBeanDefinition extends BeanMetadataAttributeAccess
 	 * @throws BeanDefinitionValidationException in case of validation failure
 	 */
 	protected void prepareMethodOverride(MethodOverride mo) throws BeanDefinitionValidationException {
+		// 获取方法名为 mo.getMethodName() 的方法数量，当方法重载时，count 的值就会大于1
 		int count = ClassUtils.getMethodCountForName(getBeanClass(), mo.getMethodName());
 		if (count == 0) {
+			// 没找到
 			throw new BeanDefinitionValidationException(
 					"Invalid method override: no method with name '" + mo.getMethodName() +
 					"' on class [" + getBeanClassName() + "]");
 		}
 		else if (count == 1) {
+			/**
+			 * count = 1 时，设置 MethodOverride 对象的 overloaded 成员变量为 false。
+			 * 这样做的目的在于，提前标注名称 mo.getMethodName() 的方法不存在重载，在使用 CGLIB 增强阶段就不需要进行校验，直接找到某个方法进行增强即可
+			 */
 			// Mark override as not overloaded, to avoid the overhead of arg type checking.
 			mo.setOverloaded(false);
 		}

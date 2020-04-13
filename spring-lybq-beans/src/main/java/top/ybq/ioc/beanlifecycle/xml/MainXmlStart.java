@@ -16,13 +16,14 @@ public class MainXmlStart {
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("beans/beans.xml");
         context.start();
-        
-        try {
-            // 等待输入数据, 回车后, 等待结束,程序继续执行.
-            System.in.read();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        Person bean = context.getBean(Person.class);
+        System.out.println(bean);
+        // try {
+        //     // 等待输入数据, 回车后, 等待结束,程序继续执行.
+        //     System.in.read();
+        // } catch (IOException e) {
+        //     e.printStackTrace();
+        // }
         context.close();
     }
 }

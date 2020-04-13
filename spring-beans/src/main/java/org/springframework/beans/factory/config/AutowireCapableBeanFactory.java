@@ -64,6 +64,21 @@ public interface AutowireCapableBeanFactory extends BeanFactory {
 	/**
 	 * Constant that indicates no externally defined autowiring. Note that
 	 * BeanFactoryAware etc and annotation-driven injection will still be applied.
+	 * 标记不使用自动装配，bean 默认 autowireMode = 0，必须通过 ref 元素指定依赖，显示指定协作者可以使配置更加灵活、清晰
+	 *
+	 * 也就是说，AUTOWIRE_NO = 0 下【注意是 A 这个 BeanDefinition 的 AUTOWIRE_NO = 0，可以通过实现 BeanFactoryPostProcessor 接口去修改 BeanDefinition 的定义的 AUTOWIRE_NO 的值】
+	 * 如果 A 被 @Component 注解扫描了，但是其中有一个 B 属性，但是没有加 @Autowired ，那么默认 spring 是不会将 b 注入给 a 的
+	 * 必须显式的使用 @Autowired 注解才行
+	 * --------------------------------
+	 * 那么没有 @Autowired 但是也注入进入 b 呢，就可以改变注入模式 AUTOWIRE_NO 的值来实现，AUTOWIRE_NO = 1，依据属性的名称注入，AUTOWIRE_NO = 2，依据 type 注入
+	 * demo：
+	 * 写个类 implements BeanFactoryPostProcessor 接口，然后重写 postProcessBeanFactory 方法
+	 * // 得到 A 定义信息
+	 * GenericBeanDefinition rootBeanDefinition = (GenericBeanDefinition) beanFactory.getBeanDefinition("A");
+	 * rootBeanDefinition.setAutowireMode(AbstractBeanDefinition.AUTOWIRE_BY_NAME);
+	 * 在 A 中的属性 b 一定要有 set 方法。
+	 * 这样就可以依据 name 或者 type 得到注入
+	 *
 	 * @see #createBean
 	 * @see #autowire
 	 * @see #autowireBeanProperties
@@ -73,6 +88,7 @@ public interface AutowireCapableBeanFactory extends BeanFactory {
 	/**
 	 * Constant that indicates autowiring bean properties by name
 	 * (applying to all bean property setters).
+	 * 依据 name 注入属性
 	 * @see #createBean
 	 * @see #autowire
 	 * @see #autowireBeanProperties
@@ -82,6 +98,7 @@ public interface AutowireCapableBeanFactory extends BeanFactory {
 	/**
 	 * Constant that indicates autowiring bean properties by type
 	 * (applying to all bean property setters).
+	 * 依据 type 注入属性
 	 * @see #createBean
 	 * @see #autowire
 	 * @see #autowireBeanProperties
@@ -91,6 +108,7 @@ public interface AutowireCapableBeanFactory extends BeanFactory {
 	/**
 	 * Constant that indicates autowiring the greediest constructor that
 	 * can be satisfied (involves resolving the appropriate constructor).
+	 * 构造器注入
 	 * @see #createBean
 	 * @see #autowire
 	 */

@@ -163,6 +163,10 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 	private final Map<Class<?>, Object> resolvableDependencies = new ConcurrentHashMap<>(16);
 
 	/** Map of bean definition objects, keyed by bean name. */
+	/**
+	 * 用于保存原始的 BeanDefinition 【bean定义信息】 没有被mearged
+	 * mearged 是什么呢？
+	 */
 	private final Map<String, BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>(256);
 
 	/** Map of singleton and non-singleton bean names, keyed by dependency type. */
@@ -853,13 +857,32 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 		// Iterate over a copy to allow for init methods which in turn register new bean definitions.
 		// While this may not be part of the regular factory bootstrap, it does otherwise work fine.
+		/**
+		 * 获取容器中目前的所有的 BeanDefinition 的名称
+		 */
 		List<String> beanNames = new ArrayList<>(this.beanDefinitionNames);
 
 		// Trigger initialization of all non-lazy singleton beans...
+		// 循环名称
 		for (String beanName : beanNames) {
+			/**
+			 * 合并 bean 的定义，这里也重点介绍一下 getMergedLocalBeanDefinition(beanName) 方法，之后你会经常见到他
+			 * BeanDefinition 的公共抽象类是 AbstractBeanDefinition，普通的 bean 在 spring 加载 BeanDefinition 的时候，实例化出来的是 GenericBeanDefinition。
+			 * 【我们从代码上看这个：org.springframework.beans.factory.support.DefaultListableBeanFactory#registerBeanDefinition(java.lang.String, org.springframework.beans.factory.config.BeanDefinition)
+			 * 这个方法在最终将 BeanDefinition 注册进 beanDefinitionMap 的时候是转为了 AbstractBeanDefinition 的。】
+			 *
+			 * 而 spring 上下文包括实例化所有 bean 用的 AbstractBeanDefinition 是 RootBeanDefinition，这个时候就使用这个方法做一次转化。
+			 * 将非 RootBeanDefinition 转为 RootBeanDefinition。
+			 *
+			 * 这里主要是为了处理 <bean id="parent" class="xxx"></bean><bean id="son" parent="parent"></bean>，这种结构
+			 * org.springframework.beans.factory.support.AbstractBeanFactory#doGetBean 也有调用此方法
+			 */
 			RootBeanDefinition bd = getMergedLocalBeanDefinition(beanName);
+			// 非抽象 && 是单例 && 非懒加载
 			if (!bd.isAbstract() && bd.isSingleton() && !bd.isLazyInit()) {
+				// 工厂 bean
 				if (isFactoryBean(beanName)) {
+					// 如果是工厂 bean，则在 beanName 前面加前缀
 					Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
 					if (bean instanceof FactoryBean) {
 						final FactoryBean<?> factory = (FactoryBean<?>) bean;
@@ -874,19 +897,30 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 									((SmartFactoryBean<?>) factory).isEagerInit());
 						}
 						if (isEagerInit) {
+							/**
+							 * 调用真正的getBean的流程
+							 */
 							getBean(beanName);
 						}
 					}
 				}
 				else {
+					/**
+					 * 非工厂，就是普通的 bean
+					 */
 					getBean(beanName);
 				}
 			}
 		}
 
 		// Trigger post-initialization callback for all applicable beans...
+		/**
+		 * 循环所有的 beanName，经过上一步已经将所有的单例 bean 实例化了，并存到了缓存。
+		 */
 		for (String beanName : beanNames) {
+			// 得到单例
 			Object singletonInstance = getSingleton(beanName);
+			// 是否实现了 SmartInitializingSingleton 接口
 			if (singletonInstance instanceof SmartInitializingSingleton) {
 				final SmartInitializingSingleton smartSingleton = (SmartInitializingSingleton) singletonInstance;
 				if (System.getSecurityManager() != null) {
@@ -896,6 +930,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 					}, getAccessControlContext());
 				}
 				else {
+					// 触发实例化后的方法 afterSingletonsInstantiated 回调。
 					smartSingleton.afterSingletonsInstantiated();
 				}
 			}

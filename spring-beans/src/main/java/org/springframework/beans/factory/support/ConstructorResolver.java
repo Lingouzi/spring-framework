@@ -128,32 +128,52 @@ class ConstructorResolver {
 		BeanWrapperImpl bw = new BeanWrapperImpl();
 		this.beanFactory.initBeanWrapper(bw);
 
+		// 当前 bean 被使用的构造器对象变量
 		Constructor<?> constructorToUse = null;
+		//封装构造器参数对象
 		ArgumentsHolder argsHolderToUse = null;
+		//构造器使用的参数对象
 		Object[] argsToUse = null;
-
+		
+		/**
+		 * 若通过 getBean 的方式传递进来的参数,我们直接不要去解析了直接可以确定选择哪个构造器
+		 */
 		if (explicitArgs != null) {
 			argsToUse = explicitArgs;
 		}
 		else {
+			/**
+			 * 针对我们单实例的bean的时候，第一次都会走解析的流程，那么在这里加入缓存没有任何意思
+			 * 那么我们多例的bean,每一次调用getBean的时候就会调用一次构造函数,那么缓存在这里就会起到很好的作用
+			 * 因为解析构造函数 逻辑十分复杂很消耗性能
+			 */
 			Object[] argsToResolve = null;
 			synchronized (mbd.constructorArgumentLock) {
+				//从缓存中获取已经解析的构造方法
 				constructorToUse = (Constructor<?>) mbd.resolvedConstructorOrFactoryMethod;
 				if (constructorToUse != null && mbd.constructorArgumentsResolved) {
 					// Found a cached constructor...
+					// 从缓存中获取出解析出来构造器对应的参数
 					argsToUse = mbd.resolvedConstructorArguments;
 					if (argsToUse == null) {
+						// 若 argsToUse 为空，则获取未解析的构造方法参数列表
 						argsToResolve = mbd.preparedConstructorArguments;
 					}
 				}
 			}
+			/**
+			 * 缓存中存在，则解析存储在 BeanDefinition 中的参数
+			 */
 			if (argsToResolve != null) {
+				// 此处可能解析循环依赖，但是不能解决循环依赖，因为还没有到暴露早期对象
 				argsToUse = resolvePreparedArguments(beanName, mbd, bw, constructorToUse, argsToResolve, true);
 			}
 		}
 
+		// 缓存没有
 		if (constructorToUse == null || argsToUse == null) {
 			// Take specified constructors, if any.
+			// 如果指定了构造函数的话，就用指定的。
 			Constructor<?>[] candidates = chosenCtors;
 			if (candidates == null) {
 				Class<?> beanClass = mbd.getBeanClass();
@@ -182,11 +202,16 @@ class ConstructorResolver {
 			}
 
 			// Need to resolve the constructor.
+			/**
+			 * 需要找到合适的构造器
+			 * 该标志是否需要解析出构造函数  chosenCtors 传入进来的不为空,注入模式 = 3
+			 */
 			boolean autowiring = (chosenCtors != null ||
 					mbd.getResolvedAutowireMode() == AutowireCapableBeanFactory.AUTOWIRE_CONSTRUCTOR);
 			ConstructorArgumentValues resolvedValues = null;
 
 			int minNrOfArgs;
+			// 构造参数不为空
 			if (explicitArgs != null) {
 				minNrOfArgs = explicitArgs.length;
 			}
@@ -201,6 +226,7 @@ class ConstructorResolver {
 			Set<Constructor<?>> ambiguousConstructors = null;
 			LinkedList<UnsatisfiedDependencyException> causes = null;
 
+			// 循环构造器
 			for (Constructor<?> candidate : candidates) {
 
 				int parameterCount = candidate.getParameterCount();
@@ -247,7 +273,10 @@ class ConstructorResolver {
 					}
 					argsHolder = new ArgumentsHolder(explicitArgs);
 				}
-
+				
+				/**
+				 * 严格模式，宽松模式
+				 */
 				int typeDiffWeight = (mbd.isLenientConstructorResolution() ?
 						argsHolder.getTypeDifferenceWeight(paramTypes) : argsHolder.getAssignabilityWeight(paramTypes));
 				// Choose this constructor if it represents the closest match.
@@ -307,6 +336,7 @@ class ConstructorResolver {
 						this.beanFactory.getAccessControlContext());
 			}
 			else {
+				// 反射调用构造函数
 				return strategy.instantiate(mbd, beanName, this.beanFactory, constructorToUse, argsToUse);
 			}
 		}

@@ -115,7 +115,18 @@ public class DefaultNamespaceHandlerResolver implements NamespaceHandlerResolver
 	@Override
 	@Nullable
 	public NamespaceHandler resolve(String namespaceUri) {
+		/**
+		 * 获取所有一级配置的 handler ，getHandlerMappings()：方法获取到所有命名空间对应的 uri，
+		 * 比如 beans.xml 文件中配置包扫描的时候用到的自定义标签<context:component-scan xx>
+		 *     它的对应的 uri = http://www.springframework.org/schema/context，
+		 * 另外：
+		 * getHandlerMappings()方法有个小坑，我们正常debug进入时发现handlerMappings已经被初始化了，但是我们没有找到任何地方调用它的，除了一个 toString()方法，所以就是因为这个toString的问题导致handlerMappings提前初始化。
+		 * 具体参考： https://www.zhihu.com/question/61890921
+		 */
 		Map<String, Object> handlerMappings = getHandlerMappings();
+		/**
+		 * 通过 uri 得到对应的 ClassName，org.springframework.context.config.ContextNamespaceHandler
+		 */
 		Object handlerOrClassName = handlerMappings.get(namespaceUri);
 		if (handlerOrClassName == null) {
 			return null;
@@ -126,13 +137,25 @@ public class DefaultNamespaceHandlerResolver implements NamespaceHandlerResolver
 		else {
 			String className = (String) handlerOrClassName;
 			try {
+				// 得到了 className 之后，就可以利用反射创建这个类了。
 				Class<?> handlerClass = ClassUtils.forName(className, this.classLoader);
 				if (!NamespaceHandler.class.isAssignableFrom(handlerClass)) {
 					throw new FatalBeanException("Class [" + className + "] for namespace [" + namespaceUri +
 							"] does not implement the [" + NamespaceHandler.class.getName() + "] interface");
 				}
+				// 实例化对象
 				NamespaceHandler namespaceHandler = (NamespaceHandler) BeanUtils.instantiateClass(handlerClass);
+				/**
+				 * 调用该对象的 init 方法，我们以自定标签 <context:component-scan xx> 为例，她得到的 className = org.springframework.context.config.ContextNamespaceHandler
+				 * 我们查看这个类的实现，发现其中有一个 init 方法，
+				 * 找到了：registerBeanDefinitionParser("component-scan", new ComponentScanBeanDefinitionParser());
+				 * 这里只是实例化了这个方法，并且加入了这个 parser，但是并没有开始调用。
+				 * 那么什么时候调用的 parse 呢？我们看回上一步 BeanDefinitionParserDelegate.parseCustomElement 方法，最后一步，
+				 * handler.parse(ele, new ParserContext(this.readerContext, this, containingBd))
+				 * 调用 NamespaceHandlerSupport.parse
+				 */
 				namespaceHandler.init();
+				// 将对象放入缓存
 				handlerMappings.put(namespaceUri, namespaceHandler);
 				return namespaceHandler;
 			}

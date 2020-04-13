@@ -82,6 +82,7 @@ public class ClassPathXmlApplicationContext extends AbstractXmlApplicationContex
 	 * @throws BeansException if context creation failed
 	 */
 	public ClassPathXmlApplicationContext(String configLocation) throws BeansException {
+		// 调用有参构造函数
 		this(new String[] {configLocation}, true, null);
 	}
 
@@ -137,10 +138,12 @@ public class ClassPathXmlApplicationContext extends AbstractXmlApplicationContex
 	public ClassPathXmlApplicationContext(
 			String[] configLocations, boolean refresh, @Nullable ApplicationContext parent)
 			throws BeansException {
-
+		// 在自己的构造函数之前 调用父类的构造函数
 		super(parent);
+		// 将配置文件的路径存入到 configLocations ,在之后解析BeanDefinition的时候用到
 		setConfigLocations(configLocations);
 		if (refresh) {
+			// 最主要的部分, 调用超类 AbstractApplicationContext 的 refresh 方法。
 			refresh();
 		}
 	}

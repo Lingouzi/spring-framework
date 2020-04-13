@@ -63,7 +63,19 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 * through {@link #register} calls and then manually {@linkplain #refresh refreshed}.
 	 */
 	public AnnotationConfigApplicationContext() {
+		/**
+		 * 父类的构造函数这里没有进一步注释，但是要知道其实父类在构建的时候也做了一些事情的。
+		 */
+		
+		/**
+		 * 初始化 annotation 模式下的 bean 定义扫描器，注解模式下，一些内置的组件定义在这里被解析【@configuration、@Autowired、@Required、事件监听器。】
+		 * 内置组件定义名称的参考：https://www.jianshu.com/p/2f084156b982
+		 * 这里注册了 5 个 BeanDefinition，不是后置处理器
+		 */
 		this.reader = new AnnotatedBeanDefinitionReader(this);
+		/**
+		 * 初始化 classpath 类型的 bean 定义扫描器
+		 */
 		this.scanner = new ClassPathBeanDefinitionScanner(this);
 	}
 
@@ -84,8 +96,22 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 * {@link Configuration @Configuration} classes
 	 */
 	public AnnotationConfigApplicationContext(Class<?>... componentClasses) {
+		/**
+		 * 调用本类的构造函数，然后先调用父类的构造函数，父类 GenericApplicationContext 在无参构造函数中会 new DefaultListableBeanFactory 会创建 beanFactory 对象。
+		 * new DefaultListableBeanFactory 时，会调用其父类 AbstractAutowireCapableBeanFactory 的构造函数，此时设置了 3 个需要 ingore 的 Aware 接口【BeanNameAware、BeanFactoryAware、BeanClassLoaderAware】
+		 * 父类构建完毕，才开始本类的构造，具体注释请查看其构造方法
+		 */
 		this();
+		/**
+		 * 将我们方法入口 @Configuration 注解的 Config 类的 BeanDefinition 注册到 beanfactory。
+		 * 比如：
+		 * 定义了一个 MyConfig 使用 @Configuration 注解，然后在 new AnnotationConfigApplicationContext(MyConfig.class)，那么就将 MyConfig 注册进来
+		 * 上一步我们知道在父类构造器时，会注册一些 BeanDefinition，先注册了 5 个，加上这里的就是第 6 个。
+		 */
 		register(componentClasses);
+		/**
+		 * IOC 容器刷新
+		 */
 		refresh();
 	}
 

@@ -125,10 +125,19 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		// the new (child) delegate with a reference to the parent for fallback purposes,
 		// then ultimately reset this.delegate back to its original (parent) reference.
 		// this behavior emulates a stack of delegates without actually necessitating one.
+		/**
+		 * BeanDefinition 委托解析类，<beans>节点中还可以定义 <beans>，所以这里是可以递归的，
+		 */
 		BeanDefinitionParserDelegate parent = this.delegate;
 		this.delegate = createDelegate(getReaderContext(), root, parent);
 
+		// 是否是默认 namespace
 		if (this.delegate.isDefaultNamespace(root)) {
+			/**
+			 * 获取 <beans profile="dev"> 这个里面的 profile 定义，可以依据配置的环境加载不同的 bean , 不是当前环境的跳过不加载.
+			 * 比如设定当前是 test 环境 ;[springboot 可以通过 spring.profile.active:dev指定, 或者配置文件<beans profile="dev">],
+			 * 但是你定义的 <beans> 节点 profile = dev, 那么就不会去加载这个节点下的bean
+			 */
 			String profileSpec = root.getAttribute(PROFILE_ATTRIBUTE);
 			if (StringUtils.hasText(profileSpec)) {
 				String[] specifiedProfiles = StringUtils.tokenizeToStringArray(
@@ -145,8 +154,11 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 			}
 		}
 
+		// 钩子
 		preProcessXml(root);
+		// 重点解析方法
 		parseBeanDefinitions(root, this.delegate);
+		// 钩子
 		postProcessXml(root);
 
 		this.delegate = parent;
@@ -166,7 +178,13 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 	 * @param root the DOM root element of the document
 	 */
 	protected void parseBeanDefinitions(Element root, BeanDefinitionParserDelegate delegate) {
+		/**
+		 * 判定是否是默认节点，spring 默认的节点有 4 个：<import/>、<alias>、<bean>、<beans>
+		 * spring 只有 4 个默认标签，其他的标签都属于自定义标签，
+		 * 比如：<tx:annotation-driven/>、注解扫描标签<context:component-scan/>，对应的是 注解 @Component @trans...
+		 */
 		if (delegate.isDefaultNamespace(root)) {
+			// 默认标签解析
 			NodeList nl = root.getChildNodes();
 			for (int i = 0; i < nl.getLength(); i++) {
 				Node node = nl.item(i);
@@ -176,28 +194,36 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 						parseDefaultElement(ele, delegate);
 					}
 					else {
+						/**
+						 * 自定义标签的解析, 这个是重点分析的,，如果要测试进入这里，在 xml 中要配置自定义标签，比如加一个开启注解的
+						 *
+						 */
 						delegate.parseCustomElement(ele);
 					}
 				}
 			}
 		}
 		else {
+			// 自定义标签解析
 			delegate.parseCustomElement(root);
 		}
 	}
 
 	private void parseDefaultElement(Element ele, BeanDefinitionParserDelegate delegate) {
+		// 4 个默认标签的解析
 		if (delegate.nodeNameEquals(ele, IMPORT_ELEMENT)) {
+			// import 标签处理
 			importBeanDefinitionResource(ele);
 		}
 		else if (delegate.nodeNameEquals(ele, ALIAS_ELEMENT)) {
 			processAliasRegistration(ele);
 		}
 		else if (delegate.nodeNameEquals(ele, BEAN_ELEMENT)) {
+			// <bean> 标签解析. 重点看这个
 			processBeanDefinition(ele, delegate);
 		}
 		else if (delegate.nodeNameEquals(ele, NESTED_BEANS_ELEMENT)) {
-			// recurse
+			// recurse 递归调用,上面的解析方法，因为<beans>节点里面还能包含<beans>节点。
 			doRegisterBeanDefinitions(ele);
 		}
 	}
@@ -303,11 +329,14 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 	 * and registering it with the registry.
 	 */
 	protected void processBeanDefinition(Element ele, BeanDefinitionParserDelegate delegate) {
+		// 将 bean 节点解析封装为一个 BeanDefinitionHolder 对象
 		BeanDefinitionHolder bdHolder = delegate.parseBeanDefinitionElement(ele);
 		if (bdHolder != null) {
+			// 自定义属性解析，
 			bdHolder = delegate.decorateBeanDefinitionIfRequired(ele, bdHolder);
 			try {
 				// Register the final decorated instance.
+				// 将解析的 BeanDefinition 注册到 beanfactory 中
 				BeanDefinitionReaderUtils.registerBeanDefinition(bdHolder, getReaderContext().getRegistry());
 			}
 			catch (BeanDefinitionStoreException ex) {
@@ -315,6 +344,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 						bdHolder.getBeanName() + "'", ele, ex);
 			}
 			// Send registration event.
+			// 注册 bean 之后，发送事件
 			getReaderContext().fireComponentRegistered(new BeanComponentDefinition(bdHolder));
 		}
 	}

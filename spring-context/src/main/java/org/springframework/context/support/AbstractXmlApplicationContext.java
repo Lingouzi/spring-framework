@@ -59,6 +59,7 @@ public abstract class AbstractXmlApplicationContext extends AbstractRefreshableC
 	 * @param parent the parent context
 	 */
 	public AbstractXmlApplicationContext(@Nullable ApplicationContext parent) {
+		// 继续调用父类的
 		super(parent);
 	}
 
@@ -91,6 +92,7 @@ public abstract class AbstractXmlApplicationContext extends AbstractRefreshableC
 		// Allow a subclass to provide custom initialization of the reader,
 		// then proceed with actually loading the bean definitions.
 		initBeanDefinitionReader(beanDefinitionReader);
+		// 走这里
 		loadBeanDefinitions(beanDefinitionReader);
 	}
 
@@ -119,10 +121,15 @@ public abstract class AbstractXmlApplicationContext extends AbstractRefreshableC
 	 * @see #getResourcePatternResolver
 	 */
 	protected void loadBeanDefinitions(XmlBeanDefinitionReader reader) throws BeansException, IOException {
+		// 直接指定的是资源文件
 		Resource[] configResources = getConfigResources();
 		if (configResources != null) {
+			/**
+			 * 看这个就可以了
+			 */
 			reader.loadBeanDefinitions(configResources);
 		}
+		// 指定的是路径, 其实研究发现最后都会调用资源文件的方式，所以直接看上面的方法即可
 		String[] configLocations = getConfigLocations();
 		if (configLocations != null) {
 			reader.loadBeanDefinitions(configLocations);

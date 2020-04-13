@@ -84,10 +84,18 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 		basePackage = parserContext.getReaderContext().getEnvironment().resolvePlaceholders(basePackage);
 		String[] basePackages = StringUtils.tokenizeToStringArray(basePackage,
 				ConfigurableApplicationContext.CONFIG_LOCATION_DELIMITERS);
-
+		
+		// 参考: https://blog.csdn.net/honghailiang888/article/details/74981445
+		
 		// Actually scan for bean definitions and register them.
+		// 定义一个扫描器，用来扫包
 		ClassPathBeanDefinitionScanner scanner = configureScanner(parserContext, element);
+		/**
+		 * 开始扫描，将扫到的 bean 的定义信息 BeanDefinition 注册到 beanfactory 中
+		 * 扫描的是指定包下的所有 class 文件，使用 asm 技术，将符合规则的 bean 转为 BeanDefinition。
+		 */
 		Set<BeanDefinitionHolder> beanDefinitions = scanner.doScan(basePackages);
+		// 注册组件
 		registerComponents(parserContext.getReaderContext(), beanDefinitions, element);
 
 		return null;
@@ -144,11 +152,19 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 
 		// Register annotation config processors, if necessary.
 		boolean annotationConfig = true;
+		/**
+		 * 默认 对注解的支持是 true 的, 所以在配置了 <context:component-scan>标签就不需要再配置<context:annotation-config>标签
+		 */
 		if (element.hasAttribute(ANNOTATION_CONFIG_ATTRIBUTE)) {
 			annotationConfig = Boolean.parseBoolean(element.getAttribute(ANNOTATION_CONFIG_ATTRIBUTE));
 		}
 		if (annotationConfig) {
 			Set<BeanDefinitionHolder> processorDefinitions =
+					/**
+					 * 注册注解处理器, 但是这里还没有开始处理注解, 要想使用注解处理器，必须要实例化注解处理器，那么其实例化是在哪里进行的呢，
+					 * 这里还需要回到org.springframework.context.support.AbstractApplicationContext.java中的refresh()函数
+					 * 回看 registerBeanPostProcessors(beanFactory); 方法，才会实例化注解处理器。
+					 */
 					AnnotationConfigUtils.registerAnnotationConfigProcessors(readerContext.getRegistry(), source);
 			for (BeanDefinitionHolder processorDefinition : processorDefinitions) {
 				compositeDef.addNestedComponent(new BeanComponentDefinition(processorDefinition));

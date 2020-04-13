@@ -122,14 +122,34 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 	 */
 	@Override
 	protected final void refreshBeanFactory() throws BeansException {
+		// 若已经存在了 就信息销毁等操作
 		if (hasBeanFactory()) {
 			destroyBeans();
+			// 关闭工厂
 			closeBeanFactory();
 		}
 		try {
+			/**
+			 * 创建 DefaultListableBeanFactory 类型的 BeanFactory，目前还没有任何属性
+			 */
 			DefaultListableBeanFactory beanFactory = createBeanFactory();
+			/**
+			 * 为容器设置一个序列化 id
+			 */
 			beanFactory.setSerializationId(getId());
+			/**
+			 * 设置 BeanFactory的2个配置属性, 是否允许bean覆盖,是否允许循环引用
+			 */
 			customizeBeanFactory(beanFactory);
+			/**
+			 * 加载我们的 bean 定义(最最最主要的作用就是保存我们的传递进去的配置类)
+			 * 此方法是一个抽象方法，需要交给子类去实现，用于加载自定义的 BeanDefinition
+			 * 其中 4 个子类：
+			 * FileSystemXmlApplicationContext: 从文件系统加载配置类
+			 * ClassPathXmlApplicationContext: 从 classpath 加载配置文件，子类 AbstractXmlApplicationContext 实现了此方法，一般用 xml 配置启动的，看这个类的实现
+			 * AnnotationConfigWebApplicationContext: 以注解的方式加载配置的bean
+			 * XmlWebApplictaionContext:
+			 */
 			loadBeanDefinitions(beanFactory);
 			synchronized (this.beanFactoryMonitor) {
 				this.beanFactory = beanFactory;
@@ -222,9 +242,11 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 	 * @see DefaultListableBeanFactory#setAllowEagerClassLoading
 	 */
 	protected void customizeBeanFactory(DefaultListableBeanFactory beanFactory) {
+		// 是否允许覆盖
 		if (this.allowBeanDefinitionOverriding != null) {
 			beanFactory.setAllowBeanDefinitionOverriding(this.allowBeanDefinitionOverriding);
 		}
+		// 是否允许循环引用
 		if (this.allowCircularReferences != null) {
 			beanFactory.setAllowCircularReferences(this.allowCircularReferences);
 		}
