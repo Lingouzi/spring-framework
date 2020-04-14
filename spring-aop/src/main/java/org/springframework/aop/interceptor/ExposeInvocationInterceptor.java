@@ -90,8 +90,10 @@ public final class ExposeInvocationInterceptor implements MethodInterceptor, Pri
 	@Override
 	public Object invoke(MethodInvocation mi) throws Throwable {
 		MethodInvocation oldInvocation = invocation.get();
+		// 记录当前正在执行的拦截器
 		invocation.set(mi);
 		try {
+			// 迭代调用，mi 也是 ReflectiveMethodInvocation 类型的
 			return mi.proceed();
 		}
 		finally {

@@ -161,10 +161,16 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 		Object target = null;
 
 		try {
+			/**
+			 * 如果调用的是 equals 方法直接返回
+			 */
 			if (!this.equalsDefined && AopUtils.isEqualsMethod(method)) {
 				// The target does not implement the equals(Object) method itself.
 				return equals(args[0]);
 			}
+			/**
+			 * hashcode 方法直接返回
+			 */
 			else if (!this.hashCodeDefined && AopUtils.isHashCodeMethod(method)) {
 				// The target does not implement the hashCode() method itself.
 				return hashCode();
@@ -180,7 +186,15 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 			}
 
 			Object retVal;
-
+			/**
+			 * 如果配置内部方法调用的增强，这里就是我们在注解 设置的
+			 * @EnableAspectJAutoProxy(exposeProxy = true)
+			 * 这里是通过一个ThreadLocal来保存代理的，在每次调用代理的时候会判断一下exposeProxy是否为true，
+			 * 如果是的话，就通过ThreadLocal保存代理，可通过 cruuetnProxy() 方法获取到代理
+			 * 方法执行完，在 finaly 又将原来的 oldProxy 放回了 ThreadLocal 中。
+			 *
+			 * 这么做就可以实现 a 方法调用 b 方法时，b 使用 a 的代理对象，达到了公用一个事务的目的，事务注解也是这个原理。
+			 */
 			if (this.advised.exposeProxy) {
 				// Make invocation available if necessary.
 				oldProxy = AopContext.setCurrentProxy(proxy);
@@ -193,6 +207,9 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 			Class<?> targetClass = (target != null ? target.getClass() : null);
 
 			// Get the interception chain for this method.
+			/**
+			 * 获取当前方法的拦截器链
+			 */
 			List<Object> chain = this.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass);
 
 			// Check whether we have any advice. If we don't, we can fallback on direct
@@ -201,6 +218,9 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 				// We can skip creating a MethodInvocation: just invoke the target directly
 				// Note that the final invoker must be an InvokerInterceptor so we know it does
 				// nothing but a reflective operation on the target, and no hot swapping or fancy proxying.
+				/**
+				 * 如果没有拦截器直接调用切点方法
+				 */
 				Object[] argsToUse = AopProxyUtils.adaptArgumentsIfNecessary(method, args);
 				retVal = AopUtils.invokeJoinpointUsingReflection(target, method, argsToUse);
 			}
@@ -209,6 +229,11 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 				MethodInvocation invocation =
 						new ReflectiveMethodInvocation(proxy, target, method, args, targetClass, chain);
 				// Proceed to the joinpoint through the interceptor chain.
+				/**
+				 * 执行拦截器链，重点！我们切面方法调用就是在这里实现的。
+				 * org.springframework.aop.framework.ReflectiveMethodInvocation#proceed()
+				 * 链式调用完毕，通知方法也都被调用了。
+				 */
 				retVal = invocation.proceed();
 			}
 
@@ -235,6 +260,9 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 			}
 			if (setProxyContext) {
 				// Restore old proxy.
+				/**
+				 * 设置回旧的 proxy
+				 */
 				AopContext.setCurrentProxy(oldProxy);
 			}
 		}

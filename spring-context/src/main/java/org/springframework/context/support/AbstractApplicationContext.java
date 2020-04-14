@@ -538,7 +538,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
              *      具体步骤参考父类 AbstractRefreshableApplicationContext.refreshBeanFactory() 方法
              *
              * 2.2、使用注解方式启动容器的
-             *      如果使用 annotation 的方式启动的容器，直接获取到了，不需要创建，因为 AnnotationConfigApplicationContext 构造时，
+             *      如果使用 annotation 的方式启动的容器，直接获取到了 BeanFactory，不需要创建，因为 AnnotationConfigApplicationContext 构造时，
              *      其父类的构造函数先执行，GenericApplicationContext 会在无参构造函数中创建一个 BeanFactory【DefaultListableBeanFactory类型】
              *      注解模式，此步骤时 beanfactory 中还没有用户的 BeanDefinition 被注册进来,
              *      ****** annotation 方法的目前还没有 BeanDefinition！！！
@@ -801,6 +801,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
          * ApplicationContextAwareProcessor 实现了 BeanPostProcessor 接口，在后面我们会了解到，在 bean 实例化的时候，
          * 也就是 Spring 激活 bean 的 init-method 的前后，会调用 BeanPostProcessor 的 postProcessBeforeInitialization 方法和 postProcessAfterInitialization 方法。
          * 我们也关注 ApplicationContextAwareProcessor 这个类的2个方法
+         *****
+         * 所有实现了 Aware 接口的 bean 在初始化的时候，这个 processor 负责回调
+         * 这个我们很常用，如我们会为了获取 ApplicationContext 而 implement ApplicationContextAware
          */
         beanFactory.addBeanPostProcessor(new ApplicationContextAwareProcessor(this));
         
@@ -883,7 +886,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
      */
     protected void invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory) {
         /**
-         * 5.1、传入 beanfactory , 通过 getBeanFactoryPostProcessors() 获取 beanFactoryPostProcessors 后置处理器（但是由于没有任何实例化过程，所以传递进来的beanFactoryPostProcessors 是空的）
+         * 5.1、传入 beanfactory , 通过 getBeanFactoryPostProcessors() 获取 beanFactoryPostProcessors 后置处理器（但是由于没有任何实例化过程，所以传递进来的 beanFactoryPostProcessors 是空的）
          * 然后调用 invokeBeanFactoryPostProcessors
          */
         PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(beanFactory, getBeanFactoryPostProcessors());

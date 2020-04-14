@@ -266,11 +266,14 @@ public class AnnotatedBeanDefinitionReader {
         AnnotationConfigUtils.processCommonDefinitionAnnotations(abd);
         if (qualifiers != null) {
             for (Class<? extends Annotation> qualifier : qualifiers) {
+                // @Primary 注解
                 if (Primary.class == qualifier) {
                     abd.setPrimary(true);
                 } else if (Lazy.class == qualifier) {
+                    // 是否懒加载
                     abd.setLazyInit(true);
                 } else {
+                    // @Qualifier
                     abd.addQualifier(new AutowireCandidateQualifier(qualifier));
                 }
             }
@@ -283,6 +286,7 @@ public class AnnotatedBeanDefinitionReader {
         
         BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(abd, beanName);
         definitionHolder = AnnotationConfigUtils.applyScopedProxyMode(scopeMetadata, definitionHolder, this.registry);
+        // 注册 BeanDefinition
         BeanDefinitionReaderUtils.registerBeanDefinition(definitionHolder, this.registry);
     }
     

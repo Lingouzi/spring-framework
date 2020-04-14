@@ -259,6 +259,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
          * 缓存中是否有这个 bean 了。
          */
         Object sharedInstance = getSingleton(beanName);
+        // 已经在缓存中的时候。而且没有传 args 参数代表是 get，直接取出返回
         if (sharedInstance != null && args == null) {
             if (logger.isTraceEnabled()) {
                 if (isSingletonCurrentlyInCreation(beanName)) {
@@ -269,13 +270,14 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
                 }
             }
             /**
-             * sharedInstance 是普通的单例 bean，那么就直接返回，如果是一个 FactoryBean 类型的，那么就需要调用工厂方法的 getObject 返回真正的 bean 实例。
+             * sharedInstance
+             * 1、如果是普通的单例 bean，那么就直接返回，
+             * 2、如果是一个 FactoryBean 类型的，那么就需要调用工厂方法的 getObject 返回真正的 bean 实例。
+             *
              * 如果用户想要获取 FactoryBean 本身，这里不会特别处理，直接返回。
+             *
              * 关于 FactoryBean 的使用和解析参考：
              * 1、https://juejin.im/post/5d8e06b06fb9a04e1c07d87b
-             *
-             * FactoryBean 是一个特殊的 bean，如果某个 bean 实现了 FactoryBean 接口，那么在扫包的时候，会注册 2 个 BeanDefinition
-             * 一个是这个 bean，另外一个是她的 getObject() 所返回的那个 bean 的 BeanDefinition。
              */
             bean = getObjectForBeanInstance(sharedInstance, name, beanName, null);
         } else {

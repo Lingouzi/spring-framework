@@ -134,7 +134,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 							}
 						}
 						/**
-						 * beanName 对应的是 FactoryBean 的实现类，实现类也会被实例化，存入 singletonObjects 中
+						 * beanName 对应的是 FactoryBean 的实现类，实现类也会被实例化，存入 factoryBeanObjectCache 中
 						 */
 						if (containsSingleton(beanName)) {
 							this.factoryBeanObjectCache.put(beanName, object);

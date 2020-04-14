@@ -276,17 +276,20 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 					logger.debug("Bean definition has already been processed as a configuration class: " + beanDef);
 				}
 			}
+			// 是否是配置类
 			else if (ConfigurationClassUtils.checkConfigurationClassCandidate(beanDef, this.metadataReaderFactory)) {
 				configCandidates.add(new BeanDefinitionHolder(beanDef, beanName));
 			}
 		}
 
 		// Return immediately if no @Configuration classes were found
+		// 没有被 @Configuration 注解的直接返回
 		if (configCandidates.isEmpty()) {
 			return;
 		}
 
 		// Sort by previously determined @Order value, if applicable
+		// 进行 Order 排序
 		configCandidates.sort((bd1, bd2) -> {
 			int i1 = ConfigurationClassUtils.getOrder(bd1.getBeanDefinition());
 			int i2 = ConfigurationClassUtils.getOrder(bd2.getBeanDefinition());
@@ -326,6 +329,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			 * 这里解析所有标注了 @Component、@PropertySources、@ComponentScans、@ComponentScan、@Import、@Bean、@ImportResource等 的配置类
 			 * 存入到 parser.configurationClasses 属性中，也得到了这些 class 的 BeanDefinition。
 			 * 目前还没有实例化 bean
+			 * org.springframework.context.annotation.ConfigurationClassParser#parse(java.util.Set)
 			 */
 			parser.parse(candidates);
 			parser.validate();

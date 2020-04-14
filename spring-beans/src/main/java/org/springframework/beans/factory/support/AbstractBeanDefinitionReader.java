@@ -184,10 +184,13 @@ public abstract class AbstractBeanDefinitionReader implements BeanDefinitionRead
 	public int loadBeanDefinitions(Resource... resources) throws BeanDefinitionStoreException {
 		Assert.notNull(resources, "Resource array must not be null");
 		int count = 0;
+		// 循环，处理所有配置文件，我们启动的时候就传递了一个。
 		for (Resource resource : resources) {
-			// 进入 XmlBeanDefinitionReader
+			// 进入 XmlBeanDefinitionReader，因为我们使用的是 xml 的配置方式
+			// 如果是 Java 类配置或者是 Groovy 的话就是另外的类
 			count += loadBeanDefinitions(resource);
 		}
+		// 返回加载的所有 BeanDefinition 的数量。
 		return count;
 	}
 

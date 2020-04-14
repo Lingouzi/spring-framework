@@ -94,10 +94,19 @@ public class AspectJAwareAdvisorAutoProxyCreator extends AbstractAdvisorAutoProx
 	protected void extendAdvisors(List<Advisor> candidateAdvisors) {
 		AspectJProxyUtils.makeAdvisorChainAspectJCapableIfNecessary(candidateAdvisors);
 	}
-
+	
+	/**
+	 * 重载父类的方法。
+	 * @param beanClass the class of the bean
+	 * @param beanName the name of the bean
+	 * @return
+	 */
 	@Override
 	protected boolean shouldSkip(Class<?> beanClass, String beanName) {
 		// TODO: Consider optimization by caching the list of the aspect names
+		/**
+		 * 找到所有标注了 @Aspect 注解的类
+		 */
 		List<Advisor> candidateAdvisors = findCandidateAdvisors();
 		for (Advisor advisor : candidateAdvisors) {
 			if (advisor instanceof AspectJPointcutAdvisor &&

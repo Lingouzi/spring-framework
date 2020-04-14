@@ -122,7 +122,10 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 	 */
 	@Override
 	protected final void refreshBeanFactory() throws BeansException {
-		// 若已经存在了 就信息销毁等操作
+		/**
+		 * 若已经存在了 就信息销毁等操作
+		 * 注意，一个应用可以存在多个BeanFactory，这里判断的是当前ApplicationContext是否存在BeanFactory
+		 */
 		if (hasBeanFactory()) {
 			destroyBeans();
 			// 关闭工厂
@@ -131,6 +134,7 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 		try {
 			/**
 			 * 创建 DefaultListableBeanFactory 类型的 BeanFactory，目前还没有任何属性
+			 * 这个类超级强大，所有关于容器的接口、抽象类它都继承了
 			 */
 			DefaultListableBeanFactory beanFactory = createBeanFactory();
 			/**

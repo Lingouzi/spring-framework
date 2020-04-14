@@ -50,7 +50,10 @@ import org.springframework.util.Assert;
  * @see GenericApplicationContext
  */
 public class ClassPathXmlApplicationContext extends AbstractXmlApplicationContext {
-
+	
+	/**
+	 * 配置文件数组
+	 */
 	@Nullable
 	private Resource[] configResources;
 
@@ -140,10 +143,20 @@ public class ClassPathXmlApplicationContext extends AbstractXmlApplicationContex
 			throws BeansException {
 		// 在自己的构造函数之前 调用父类的构造函数
 		super(parent);
-		// 将配置文件的路径存入到 configLocations ,在之后解析BeanDefinition的时候用到
+		/**
+		 * 根据提供的路径，处理成配置文件数组(以分号、逗号、空格、tab、换行符分割)
+		 * 将配置文件的路径存入到 configLocations ,在之后解析BeanDefinition的时候用到
+		 * 主要工作：
+		 * 1、创建环境对象 ConfigurableEnvironment
+		 * 	 1.1、一个是设置Spring的环境就是我们经常用的spring.profile配置。
+		 * 	 1.2、另外就是系统资源 Property
+		 * 2、处理 ClassPathXmlApplicationContext 传入的字符串中的占位符，处理 ${} 这种占位符
+		 */
 		setConfigLocations(configLocations);
 		if (refresh) {
-			// 最主要的部分, 调用超类 AbstractApplicationContext 的 refresh 方法。
+			/**
+			 * 最主要的部分, 调用超类 AbstractApplicationContext 的 refresh 方法。
+			 */
 			refresh();
 		}
 	}

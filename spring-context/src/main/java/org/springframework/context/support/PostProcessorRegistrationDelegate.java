@@ -72,7 +72,7 @@ final class PostProcessorRegistrationDelegate {
 		 * 5.1.1、找到 BeanDefinitionRegistryPostProcessors 类型的后置处理器，然后调用它们的 2 个方法【因为还有她的父类的方法】
 		 */
 		
-		//
+		// 将已经处理过的 PostProcessor 记录，避免重复调用回调方法
 		Set<String> processedBeans = new HashSet<>();
 		
 		// 判定类型 beanfactory 实现了 BeanDefinitionRegistry
@@ -87,6 +87,12 @@ final class PostProcessorRegistrationDelegate {
 			// 循环传递来的 beanFactoryPostProcessors，默认如果你没有自定义实现，是没有的。
 			/**
 			 * 循环目前有的 beanFactoryPostProcessors ，循环找到 BeanDefinitionRegistryPostProcessor 类型的，就直接执行方法调用，然后将它保存到 registryProcessors
+			 *******
+			 * 解析 @Configuration @Component、@PropertySources、@ComponentScans、@ComponentScan、@Import、@Bean、@ImportResource等 的配置类
+			 * 就是调用的 ConfigurationClassPostProcessor 的 postProcessBeanDefinitionRegistry 方法
+			 * org.springframework.context.annotation.ConfigurationClassPostProcessor#postProcessBeanDefinitionRegistry()
+			 *
+			 ********
 			 * 但是使用 annotation 方式 debug 进来发现这里 beanFactoryPostProcessors.size = 0 是没有值得
 			 * xml 配置的方式这里 也是 0；
 			 */
@@ -133,7 +139,7 @@ final class PostProcessorRegistrationDelegate {
 					 * 经过此步骤之后，beanfactory 中的 singletonObjects 中就有 4 个单例对象的，之前的 3 个是：systemEnvironment、environment、systemProperties
 					 */
 					currentRegistryProcessors.add(beanFactory.getBean(ppName, BeanDefinitionRegistryPostProcessor.class));
-					// 也加入到 processedBeans
+					// 加入 processedBeans
 					processedBeans.add(ppName);
 				}
 			}
@@ -142,9 +148,11 @@ final class PostProcessorRegistrationDelegate {
 			// 记录
 			registryProcessors.addAll(currentRegistryProcessors);
 			/**
-			 * 回调方法, 如果是 annotation 启动的容器，第一个注册的 processor 是 currentRegistryProcessors = ConfigurationClassParser【就是我们启动时配置的启动 config】，
-			 * 会去执行他的回调，在这里 spring 就对整个项目进行包扫描【依据配置的路径】，得到了所有需要注入的 bean 的 BeanDefinition
-			 * 所以和 xml 的获取所有 BeanDefinition 不太一样
+			 * 回调方法, 如果是 annotation 启动的容器，第一个注册的 processor 是 currentRegistryProcessors = ConfigurationClassPostProcessor
+			 * 会去执行他的回调，查看源码发现 spring 在这里对整个项目进行包扫描【依据配置的路径】，得到了所有需要注入的 bean 的 BeanDefinition
+			 * 所以和 xml 的获取所有 BeanDefinition 时机不太一样
+			 *
+			 * 只是获取，但是还没有执行这些 PostProcessor 的回调
 			 */
 			invokeBeanDefinitionRegistryPostProcessors(currentRegistryProcessors, registry);
 			// 清理当前的 PostProcessor 避免重复执行, 因为 currentRegistryProcessors 后面还在使用，避免重复创建消耗资源
@@ -167,32 +175,45 @@ final class PostProcessorRegistrationDelegate {
 			currentRegistryProcessors.clear();
 			
 			/**
-			 * 剩余的没有优先级的
+			 * 剩余的没有优先级的，一般不加 order 和优先级的，都走这里
 			 */
 			// Finally, invoke all other BeanDefinitionRegistryPostProcessors until no further ones appear.
 			boolean reiterate = true;
 			while (reiterate) {
 				reiterate = false;
+				/**
+				 * 首先找到实现了 BeanDefinitionRegistryPostProcessor 接口的 BeanDefinition
+				 */
 				postProcessorNames = beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false);
 				for (String ppName : postProcessorNames) {
 					if (!processedBeans.contains(ppName)) {
+						/**
+						 * 得到了 BeanDefinition 之后创建 bean 注册到 singletonObjects 中
+						 */
 						currentRegistryProcessors.add(beanFactory.getBean(ppName, BeanDefinitionRegistryPostProcessor.class));
+						/**
+						 * 加入到执行记录，避免多次实例化
+						 */
 						processedBeans.add(ppName);
 						reiterate = true;
 					}
 				}
+				// 排序
 				sortPostProcessors(currentRegistryProcessors, beanFactory);
 				registryProcessors.addAll(currentRegistryProcessors);
+				/**
+				 * 这里就执行了回调，比如我们测试 demo 中的 MyBeanDefinitionRegisterPostProcessor 的 postProcessBeanDefinitionRegistry 方法在这里被调用，
+				 */
 				invokeBeanDefinitionRegistryPostProcessors(currentRegistryProcessors, registry);
 				currentRegistryProcessors.clear();
 			}
 			
 			/**
-			 *
+			 * MyBeanDefinitionRegisterPostProcessor 还重写了 postProcessBeanFactory 方法，也在这里回调
 			 */
 			// Now, invoke the postProcessBeanFactory callback of all processors handled so far.
 			invokeBeanFactoryPostProcessors(registryProcessors, beanFactory);
-			// 这里的 regularPostProcessors 是循环方法传递来的参数解析出来的
+			// 这里的 regularPostProcessors 值是上面循环 beanFactoryPostProcessors 方法传递来的参数解析出来的
 			invokeBeanFactoryPostProcessors(regularPostProcessors, beanFactory);
 		}
 

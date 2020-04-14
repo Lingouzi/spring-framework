@@ -385,6 +385,7 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 
 		int numUnboundArgs = this.parameterTypes.length;
 		Class<?>[] parameterTypes = this.aspectJAdviceMethod.getParameterTypes();
+		// 切面注解标识的方法第一个参数要求是 JoinPoint,或 StaticPart，若是 @Around 注解则也可以是 ProceedingJoinPoint
 		if (maybeBindJoinPoint(parameterTypes[0]) || maybeBindProceedingJoinPoint(parameterTypes[0]) ||
 				maybeBindJoinPointStaticPart(parameterTypes[0])) {
 			numUnboundArgs--;

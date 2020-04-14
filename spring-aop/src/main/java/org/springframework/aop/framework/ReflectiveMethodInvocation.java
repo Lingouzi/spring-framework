@@ -26,6 +26,7 @@ import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 
 import org.springframework.aop.ProxyMethodInvocation;
+import org.springframework.aop.interceptor.ExposeInvocationInterceptor;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.lang.Nullable;
@@ -159,10 +160,43 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	@Nullable
 	public Object proceed() throws Throwable {
 		// We start with an index of -1 and increment early.
+		/**
+		 * 这里有必要再复习一下 spring 的 aop 相关术语：https://blog.csdn.net/github_34889651/article/details/51321499
+		 * @Aspect：定义一个切面
+		 * 切点：@Pointcut("execution(* top.ybq87.LybqCalculate.*(..))")
+		 * @Before：定义通知
+		 * @Around：定义通知
+		 * ...
+		 * currentInterceptorIndex：当前执行的通知的序号，默认 -1
+		 * interceptorsAndDynamicMethodMatchers：一共有几个通知被调用，在我的 demo 中有 5 个，顺序是
+		 * 1、ExposeInvocationInterceptor：记录当前调用的通知。
+		 * 2、异常通知 AspectJAfterThrowingAdvice
+		 * 3、返回通知 AfterReturningAdviceInterceptor
+		 * 4、后置通知 AspectJAfterAdvice
+		 * 5、前置通知 MethodBeforeAdviceInterceptor
+		 *
+		 */
 		if (this.currentInterceptorIndex == this.interceptorsAndDynamicMethodMatchers.size() - 1) {
+			/**
+			 * 执行真实的方法。
+			 */
 			return invokeJoinpoint();
 		}
-
+		/**
+		 * 1、-1 != 5 - 1，currentInterceptorIndex = 0，获取到第 0 个，ExposeInvocationInterceptor，执行他的 invoke 方法，记录当前正在执行的通知到 threadlocal。
+		 * 2、0 != 5 - 1，currentInterceptorIndex = 1，获取到 异常通知，调用 AspectJAfterThrowingAdvice#invoke 方法，
+		 * 3、1 != 5 - 1，currentInterceptorIndex = 2，获取到 返回通知，调用 AfterReturningAdviceInterceptor#invoke
+		 * 4、2 != 5 - 1，currentInterceptorIndex = 3，后置通知，调用 AspectJAfterAdvice#invoke
+		 * 5、3 != 5 - 1，currentInterceptorIndex = 4，后置通知，调用 MethodBeforeAdviceInterceptor#invoke
+		 * 6、4 == 5 - 1，就进入了上面的 invokeJoinpoint() 方法，直接调用业务的实际方法，在本例式中就是 top.ybq87.LybqCalculate#div(int, int)
+		 * 7、调用完毕看到直接返回了，那么应该返回上一级，指向第 5、步，又直接返回了
+		 * 8、返回到第 4、步，有一个 finally 模块被调用，执行 after 通知，然后又返回了
+		 * 9、返回第 3、步，Object retVal = mi.proceed();返回值赋值给了 retVal，下面执行了一个 return 通知，然后再次返回
+		 * 10、返回第 2、步，没有错误，直接返回第 1、步，
+		 * 11、第一步接收返回，有个 finally 模块，invocation.set(oldInvocation); 去除 threadlocal 绑定。
+		 * 12、org.springframework.aop.framework.ReflectiveMethodInvocation#proceed() 方法才正式返回。
+		 *
+		 */
 		Object interceptorOrInterceptionAdvice =
 				this.interceptorsAndDynamicMethodMatchers.get(++this.currentInterceptorIndex);
 		if (interceptorOrInterceptionAdvice instanceof InterceptorAndDynamicMethodMatcher) {

@@ -392,7 +392,7 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 			// 使用 document 的方式读取配置文件信息
 			Document doc = doLoadDocument(inputSource, resource);
 			/**
-			 * 注册 BeanDefinition，关键位置
+			 * 依据 document 信息解析 bean，注册 BeanDefinition，关键位置
 			 */
 			int count = registerBeanDefinitions(doc, resource);
 			if (logger.isDebugEnabled()) {
@@ -512,11 +512,17 @@ public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
 	 * @see BeanDefinitionDocumentReader#registerBeanDefinitions
 	 */
 	public int registerBeanDefinitions(Document doc, Resource resource) throws BeanDefinitionStoreException {
+		// 构建读取 document 的工具类
 		BeanDefinitionDocumentReader documentReader = createBeanDefinitionDocumentReader();
+		// 获取已经注册的 bean 的数量
 		int countBefore = getRegistry().getBeanDefinitionCount();
-		// 注册BeanDefinition
-		// DefaultNamespaceHandlerResolver 这个类的 handlerMappings 会在 createReaderContext() 这个方法调用的时候被初始化.
+		/**
+		 * 注册BeanDefinition
+		 * DefaultNamespaceHandlerResolver 这个类的 handlerMappings 会在 createReaderContext() 这个方法调用的时候被初始化.
+		 * 看 registerBeanDefinitions 方法
+		 */
 		documentReader.registerBeanDefinitions(doc, createReaderContext(resource));
+		// 总注册 bean 数量减去之前注册的数量，就是本次注册的 bean 数量
 		return getRegistry().getBeanDefinitionCount() - countBefore;
 	}
 

@@ -308,10 +308,12 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 	 * @return a corresponding Set of autodetected bean definitions
 	 */
 	public Set<BeanDefinition> findCandidateComponents(String basePackage) {
+		// 判断是否使用 filter 指定忽略包不扫描
 		if (this.componentsIndex != null && indexSupportsIncludeFilters()) {
 			return addCandidateComponentsFromIndex(this.componentsIndex, basePackage);
 		}
 		else {
+			// 扫包
 			return scanCandidateComponents(basePackage);
 		}
 	}
@@ -414,6 +416,7 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 	private Set<BeanDefinition> scanCandidateComponents(String basePackage) {
 		Set<BeanDefinition> candidates = new LinkedHashSet<>();
 		try {
+			// 组装扫描路径，最后是这样的格式 classpath*:cn/shiyujun/config/**/*.class
 			String packageSearchPath = ResourcePatternResolver.CLASSPATH_ALL_URL_PREFIX +
 					resolveBasePackage(basePackage) + '/' + this.resourcePattern;
 			// 得到扫包下的所有的 class 文件路径
@@ -428,7 +431,11 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 					try {
 						// 得到 class 的元数据，其中包含了每个 class 的注解信息
 						MetadataReader metadataReader = getMetadataReaderFactory().getMetadataReader(resource);
-						// 判定是否是被注解的 bean，@Component，等，经过 filter
+						/**
+						 * 查看配置类是否有 @Conditional 一系列的注解，然后是否满足注册Bean的条件
+						 * 关于条件注解 @Conditional 的解释
+						 * 参考：https://mp.weixin.qq.com/s/RXYIh_g5iU1e3liK-8n5zA
+						 */
 						if (isCandidateComponent(metadataReader)) {
 							ScannedGenericBeanDefinition sbd = new ScannedGenericBeanDefinition(metadataReader);
 							sbd.setResource(resource);

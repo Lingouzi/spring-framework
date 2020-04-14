@@ -487,7 +487,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// clone the bean definition in case of a dynamically resolved Class
 		// which cannot be stored in the shared merged bean definition.
 		/**
-		 * 确保 bean 的定义信息被正确解析
+		 * 确保 bean 的定义信息 class 被正确解析
 		 */
 		Class<?> resolvedClass = resolveBeanClass(mbd, beanName);
 		if (resolvedClass != null && !mbd.hasBeanClass() && mbd.getBeanClassName() != null) {
@@ -516,8 +516,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			/**
 			 * 通过 bean 的后置处理器来生成代理对象，一般情况下这里不会生成代理对象，我们的 jdk 代理和 cglib 代理都不会再此处进行代理。
 			 * 因为我们的真实对象都还没有生成，代理的前提是有真实对象。
-			 *
-			 * 这一步其实是和 aop 和事务相关的，关键位置，在这里会解析 aop 切换信息，并进行缓存。
+			 ********
+			 * 在分析到代理对象时可以详细看看
+			 * 我们查看生成代理对象的 代码：exposedObject = initializeBean(beanName, exposedObject, mbd);
+			 * 下面这一步其实是和 aop 和事务相关的，关键位置，在这里会解析 aop 切换信息，并进行缓存。
 			 */
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
@@ -531,7 +533,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		try {
 			/**
-			 * 这里才是真正的创建 bean 实例
+			 * 这里才是真正的创建 bean 实例，同时 bean 创建之后经过了后置处理器判定是否需要转为代理对象
+			 * wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
 			 */
 			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
 			if (logger.isTraceEnabled()) {
@@ -638,7 +641,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			 */
 			populateBean(beanName, mbd, instanceWrapper);
 			/**
-			 * 进行对象初始化操作(在这里可能生成代理对象)
+			 * 进行对象初始化操作 (在这里可能生成代理对象)
 			 */
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
@@ -1208,6 +1211,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				/**
 				 * 【很重要，很重要】
 				 * 在 aop 中，@EnableAspectJAutoProxy 注解为容器导入了 AnnotationAwareAspectJAutoProxyCreator
+				 * 这个类主要功能就是根据 @Point 注解定义的切点，来自动代理与表达式匹配的类。也就是这个类来找到要代理的类
+				 *
+				 *****
 				 * 事务注解 @EnableTransactionManagement 为我们的容器导入了 InfrastructureAdvisorAutoProxyCreator
 				 * 都是实现了 BeanPostProcessor 接口，InstantiationAwareBeanPostProcessor接口，
 				 * 进行后置处理器解析切面。
@@ -1486,10 +1492,16 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		if (resolvedAutowireMode == AUTOWIRE_BY_NAME || resolvedAutowireMode == AUTOWIRE_BY_TYPE) {
 			MutablePropertyValues newPvs = new MutablePropertyValues(pvs);
 			// Add property values based on autowire by name if applicable.
+			/**
+			 * 通过名称找到所有属性值，如果是 bean 依赖，先初始化依赖的 bean，记录依赖关系
+			 */
 			if (resolvedAutowireMode == AUTOWIRE_BY_NAME) {
 				autowireByName(beanName, mbd, bw, newPvs);
 			}
 			// Add property values based on autowire by type if applicable.
+			/**
+			 * 通过类型装配，比较复杂
+			 */
 			if (resolvedAutowireMode == AUTOWIRE_BY_TYPE) {
 				autowireByType(beanName, mbd, bw, newPvs);
 			}
@@ -1516,6 +1528,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 						if (filteredPds == null) {
 							filteredPds = filterPropertyDescriptorsForDependencyCheck(bw, mbd.allowCaching);
 						}
+						/**
+						 * 对所有标记 @Autowired、@Value 注解的属性进行设置
+						 */
 						pvsToUse = ibp.postProcessPropertyValues(pvs, filteredPds, bw.getWrappedInstance(), beanName);
 						if (pvsToUse == null) {
 							return;
@@ -1906,7 +1921,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					beanName, "Invocation of init method failed", ex);
 		}
 		if (mbd == null || !mbd.isSynthetic()) {
-			// 后置处理器
+			/**
+			 * 代理对象就是在这里创建的，如果需要的话
+			 */
 			wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
 		}
 

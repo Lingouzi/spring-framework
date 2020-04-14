@@ -12,9 +12,12 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
  */
 public class MainAnnotationStart {
     
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(MyAnnotationConfig.class);
-        A a = ac.getBean(A.class);
+        String[] names = ac.getBeanFactory().getBeanDefinitionNames();
+        for (String name : names) {
+            System.out.println(name);
+        }
         // AutowireCapableBeanFactory capableBeanFactory = ac.getAutowireCapableBeanFactory();
         // capableBeanFactory.autowire(MyParent.class, AutowireCapableBeanFactory.AUTOWIRE_BY_TYPE, false);
         // System.out.println(parent.getSon());

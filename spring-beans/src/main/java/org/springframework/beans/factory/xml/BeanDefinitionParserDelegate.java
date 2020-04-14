@@ -416,12 +416,14 @@ public class BeanDefinitionParserDelegate {
 		String nameAttr = ele.getAttribute(NAME_ATTRIBUTE);
 
 		List<String> aliases = new ArrayList<>();
+		// 将 name 属性的定义按照“逗号、分号、空格”切分，形成一个 别名列表数组
 		if (StringUtils.hasLength(nameAttr)) {
 			String[] nameArr = StringUtils.tokenizeToStringArray(nameAttr, MULTI_VALUE_ATTRIBUTE_DELIMITERS);
 			aliases.addAll(Arrays.asList(nameArr));
 		}
 
 		String beanName = id;
+		// 如果没有指定 id，那么用别名列表的第一个名字作为 beanName
 		if (!StringUtils.hasText(beanName) && !aliases.isEmpty()) {
 			beanName = aliases.remove(0);
 			if (logger.isTraceEnabled()) {
@@ -433,10 +435,15 @@ public class BeanDefinitionParserDelegate {
 		if (containingBean == null) {
 			checkNameUniqueness(beanName, aliases, ele);
 		}
-
-		// 解析 bean 信息
+		
+		/**
+		 * 解析 bean 信息，将配置中的信息都设置到实例中
+		 * 执行完这个之后，一个 BeanDefinition 实例就出来了。
+		 */
 		AbstractBeanDefinition beanDefinition = parseBeanDefinitionElement(ele, beanName, containingBean);
+		// <bean /> 标签完成
 		if (beanDefinition != null) {
+			// 如果没有设置 id 和 name，那么此时的 beanName 就为 null
 			if (!StringUtils.hasText(beanName)) {
 				try {
 					if (containingBean != null) {
@@ -452,6 +459,7 @@ public class BeanDefinitionParserDelegate {
 						if (beanClassName != null &&
 								beanName.startsWith(beanClassName) && beanName.length() > beanClassName.length() &&
 								!this.readerContext.getRegistry().isBeanNameInUse(beanClassName)) {
+							// 把 beanClassName 设置为 bean 的别名
 							aliases.add(beanClassName);
 						}
 					}
@@ -466,7 +474,7 @@ public class BeanDefinitionParserDelegate {
 				}
 			}
 			String[] aliasesArray = StringUtils.toStringArray(aliases);
-			//
+			// 返回 BeanDefinitionHolder
 			return new BeanDefinitionHolder(beanDefinition, beanName, aliasesArray);
 		}
 
@@ -514,22 +522,38 @@ public class BeanDefinitionParserDelegate {
 		}
 
 		try {
+			// 创建 BeanDefinition ，然后设置类的信息
 			AbstractBeanDefinition bd = createBeanDefinition(className, parent);
 
+			// 设置 BeanDefinition 的一堆属性，这些属性定义在 AbstractBeanDefinition 中
 			parseBeanDefinitionAttributes(ele, beanName, containingBean, bd);
 			bd.setDescription(DomUtils.getChildElementValueByTagName(ele, DESCRIPTION_ELEMENT));
-
+			
+			/**
+			 * 以下是解析 <bean>xxx</bean> 内部的子元素，解析出来之后信息放到 bd 属性中
+			 */
+			
+			// 解析 <meta/>
 			parseMetaElements(ele, bd);
+			// 解析 <lookup-method />
 			parseLookupOverrideSubElements(ele, bd.getMethodOverrides());
+			// 解析 <replaced-method />
 			parseReplacedMethodSubElements(ele, bd.getMethodOverrides());
-
+			// 解析 <constructor-arg />
 			parseConstructorArgElements(ele, bd);
+			// 解析 <property />
 			parsePropertyElements(ele, bd);
+			// 解析 <qualifier />
 			parseQualifierElements(ele, bd);
 
 			bd.setResource(this.readerContext.getResource());
 			bd.setSource(extractSource(ele));
 
+			/**
+			 * 在此 BeanDefinition 创建完了，看回
+			 * BeanDefinitionHolder bdHolder = delegate.parseBeanDefinitionElement(ele);
+			 */
+			
 			return bd;
 		}
 		catch (ClassNotFoundException ex) {

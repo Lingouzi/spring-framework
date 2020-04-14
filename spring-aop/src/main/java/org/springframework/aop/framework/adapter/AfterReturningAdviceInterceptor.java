@@ -53,6 +53,7 @@ public class AfterReturningAdviceInterceptor implements MethodInterceptor, After
 	@Override
 	public Object invoke(MethodInvocation mi) throws Throwable {
 		Object retVal = mi.proceed();
+		// 这里没有抓取错误，因为交给上级的 错误处理
 		this.advice.afterReturning(retVal, mi.getMethod(), mi.getArguments(), mi.getThis());
 		return retVal;
 	}

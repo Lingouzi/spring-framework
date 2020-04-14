@@ -134,7 +134,8 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		// 是否是默认 namespace
 		if (this.delegate.isDefaultNamespace(root)) {
 			/**
-			 * 获取 <beans profile="dev"> 这个里面的 profile 定义，可以依据配置的环境加载不同的 bean , 不是当前环境的跳过不加载.
+			 * 获取 <beans ... profile="***" /> 中的 profile参数与当前环境是否匹配，如果不匹配则不再进行解析
+			 *
 			 * 比如设定当前是 test 环境 ;[springboot 可以通过 spring.profile.active:dev指定, 或者配置文件<beans profile="dev">],
 			 * 但是你定义的 <beans> 节点 profile = dev, 那么就不会去加载这个节点下的bean
 			 */
@@ -154,9 +155,11 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 			}
 		}
 
-		// 钩子
+		// 钩子，留给开发人员去拓展的，实现 DefaultBeanDefinitionDocumentReader 自定义
 		preProcessXml(root);
-		// 重点解析方法
+		/**
+		 * 重点解析方法
+		 */
 		parseBeanDefinitions(root, this.delegate);
 		// 钩子
 		postProcessXml(root);
@@ -191,6 +194,9 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 				if (node instanceof Element) {
 					Element ele = (Element) node;
 					if (delegate.isDefaultNamespace(ele)) {
+						/**
+						 * 默认标签处理
+						 */
 						parseDefaultElement(ele, delegate);
 					}
 					else {
@@ -329,7 +335,10 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 	 * and registering it with the registry.
 	 */
 	protected void processBeanDefinition(Element ele, BeanDefinitionParserDelegate delegate) {
-		// 将 bean 节点解析封装为一个 BeanDefinitionHolder 对象
+		/**
+		 * 将 bean 节点解析封装为一个 BeanDefinitionHolder 对象
+		 * 看看 parseBeanDefinitionElement 解析方法
+		 */
 		BeanDefinitionHolder bdHolder = delegate.parseBeanDefinitionElement(ele);
 		if (bdHolder != null) {
 			// 自定义属性解析，
