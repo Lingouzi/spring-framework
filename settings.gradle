@@ -38,4 +38,5 @@ rootProject.children.each {project ->
 }
 include 'spring-lybq-beans'
 include 'spring-lybq-aop'
+include 'spring-lybq-springboot-springmvc'
 
