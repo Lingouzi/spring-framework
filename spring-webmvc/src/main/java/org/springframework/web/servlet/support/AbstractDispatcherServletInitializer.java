@@ -56,11 +56,25 @@ public abstract class AbstractDispatcherServletInitializer extends AbstractConte
 	 * The default servlet name. Can be customized by overriding {@link #getServletName}.
 	 */
 	public static final String DEFAULT_SERVLET_NAME = "dispatcher";
-
-
+	
+	
+	/**
+	 * 真实调用，但是很奇怪，我们分析完这 2 步之后，只看到了父子容器被实例化了，但是并没有进行初始化【refresh()】
+	 * 那么接下来怎么分析源码啊？
+	 *
+	 * 我们这个时候就回顾一下 web 应用的三大组件，servlet、filter、listener 的特性。
+	 * 1、listener 在应用容器启动的时候会去调用它的 ContextLoaderListener#contextInitialized，我们去看看
+	 * 2、servlet 在启动的时候，会调用 init 方法。我们找到了 DispatcherServlet 的父类
+	 * org.springframework.web.servlet.HttpServletBean#init() 去看看
+	 *
+	 * @param servletContext
+	 * @throws ServletException
+	 */
 	@Override
 	public void onStartup(ServletContext servletContext) throws ServletException {
+		// 调用的父类，实例化我们的 spring root 上下文，只是创建，没有初始化
 		super.onStartup(servletContext);
+		// 注册我们的 DispatcherServlet 创建我们 spring web 上下文对象
 		registerDispatcherServlet(servletContext);
 	}
 
@@ -73,25 +87,62 @@ public abstract class AbstractDispatcherServletInitializer extends AbstractConte
 	 * <p>Further customization can be achieved by overriding {@link
 	 * #customizeRegistration(ServletRegistration.Dynamic)} or
 	 * {@link #createDispatcherServlet(WebApplicationContext)}.
+	 *
+	 * 我们一般的配置信息
+	 <servlet>
+		 <servlet-name>app</servlet-name>
+	     <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+		 <init-param>
+			 <param-name>contextConfigLocation</param-name>
+			 <param-value></param-value>
+		 </init-param>
+		 <load-on-startup>1</load-on-startup>
+	 </servlet>
+	 <servlet-mapping>
+		 <servlet-name>app</servlet-name>
+		 <url-pattern>/*</url-pattern>
+	 </servlet-mapping>
+	 *
+	 *
 	 * @param servletContext the context to register the servlet against
 	 */
 	protected void registerDispatcherServlet(ServletContext servletContext) {
+		// 获取 dispatcherservlet 的名称
 		String servletName = getServletName();
 		Assert.hasLength(servletName, "getServletName() must not return null or empty");
-
+		
+		/**
+		 * 创建 WebApplicationContext 对象，交给子类实现
+		 * org.springframework.web.servlet.support.AbstractAnnotationConfigDispatcherServletInitializer#createServletApplicationContext()
+		 * 实例化 子容器
+		 */
 		WebApplicationContext servletAppContext = createServletApplicationContext();
 		Assert.notNull(servletAppContext, "createServletApplicationContext() must not return null");
-
+		
+		/**
+		 * 创建 DispatcherServlet 对象，所以 tomcat 会对 DispatcherServlet 进行生命周期管理
+		 * 我们进去发现只是设置关联子容器，没有更多操作。
+		 *
+		 */
 		FrameworkServlet dispatcherServlet = createDispatcherServlet(servletAppContext);
 		Assert.notNull(dispatcherServlet, "createDispatcherServlet(WebApplicationContext) must not return null");
+		/**
+		 * 获取 ServletApplicationContextInitializers 对象，注册到 dispatcherServlet
+		 */
 		dispatcherServlet.setContextInitializers(getServletApplicationContextInitializers());
-
+		
+		/**
+		 * 将 DispatcherServlet 注册到 tomcat
+		 */
 		ServletRegistration.Dynamic registration = servletContext.addServlet(servletName, dispatcherServlet);
 		if (registration == null) {
 			throw new IllegalStateException("Failed to register servlet with name '" + servletName + "'. " +
 					"Check if there is another servlet registered under the same name.");
 		}
-
+		
+		/**
+		 * 眼熟吧，设置 dispatcherServlet 属性
+		 */
 		registration.setLoadOnStartup(1);
 		registration.addMapping(getServletMappings());
 		registration.setAsyncSupported(isAsyncSupported());
@@ -132,6 +183,7 @@ public abstract class AbstractDispatcherServletInitializer extends AbstractConte
 	 * Previously, it insisted on returning a {@link DispatcherServlet} or subclass thereof.
 	 */
 	protected FrameworkServlet createDispatcherServlet(WebApplicationContext servletAppContext) {
+		// 传入了 子容器对象
 		return new DispatcherServlet(servletAppContext);
 	}
 

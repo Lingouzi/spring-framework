@@ -144,17 +144,20 @@ public abstract class HttpServletBean extends HttpServlet implements Environment
      * invoke subclass initialization.
      * @throws ServletException if bean properties are invalid (or required
      * properties are missing), or if subclass initialization fails.
+	 *
+	 * 重写父类方法
      */
     @Override
     public final void init() throws ServletException {
         
         // Set bean properties from init parameters.
         /**
-         * 处理 init-param 参数，springboot 中是默认没有的
+         * 处理 init-param 参数，springboot 启动时是默认没有的
          */
         PropertyValues pvs = new ServletConfigPropertyValues(getServletConfig(), this.requiredProperties);
         if (!pvs.isEmpty()) {
             try {
+            	// 将当前的这个 servlet【注意参数是 this】转为 beanwrapper，spring 就可以对他进行属性注入。
                 BeanWrapper bw = PropertyAccessorFactory.forBeanPropertyAccess(this);
                 ResourceLoader resourceLoader = new ServletContextResourceLoader(getServletContext());
                 bw.registerCustomEditor(Resource.class, new ResourceEditor(resourceLoader, getEnvironment()));

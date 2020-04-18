@@ -102,6 +102,9 @@ import org.springframework.util.ReflectionUtils;
  * See {@link WebApplicationInitializer} Javadoc for examples and detailed usage
  * recommendations.<p>
  *
+ * 在官方文档中描述：使用 @HandlesTypes 注解，会扫描所有 实现了 value=WebApplicationInitializer 的接口实现类，组装为 set 参数，传递给
+ * org.springframework.web.SpringServletContainerInitializer#onStartup(java.util.Set, javax.servlet.ServletContext)
+ *
  * @author Chris Beams
  * @author Juergen Hoeller
  * @author Rossen Stoyanchev
@@ -141,16 +144,28 @@ public class SpringServletContainerInitializer implements ServletContainerInitia
 	@Override
 	public void onStartup(@Nullable Set<Class<?>> webAppInitializerClasses, ServletContext servletContext)
 			throws ServletException {
-
+		
+		/**
+		 *
+		 */
 		List<WebApplicationInitializer> initializers = new LinkedList<>();
 
 		if (webAppInitializerClasses != null) {
+			/**
+			 * 循环 WebApplicationInitializer 的实现类，然后调用这个类的 onStartup 方法
+			 */
 			for (Class<?> waiClass : webAppInitializerClasses) {
 				// Be defensive: Some servlet containers provide us with invalid classes,
 				// no matter what @HandlesTypes says...
+				/**
+				 * 不是接口，不是抽象类，而且实现了 WebApplicationInitializer 接口的
+				 */
 				if (!waiClass.isInterface() && !Modifier.isAbstract(waiClass.getModifiers()) &&
 						WebApplicationInitializer.class.isAssignableFrom(waiClass)) {
 					try {
+						/**
+						 * 将通过判定的加入到 initializers
+						 */
 						initializers.add((WebApplicationInitializer)
 								ReflectionUtils.accessibleConstructor(waiClass).newInstance());
 					}
@@ -167,8 +182,15 @@ public class SpringServletContainerInitializer implements ServletContainerInitia
 		}
 
 		servletContext.log(initializers.size() + " Spring WebApplicationInitializers detected on classpath");
+		/**
+		 * 排序，因为可以实现多个 WebApplicationInitializer，实现了 order 接口或者使用了 @Order 注解的
+		 */
 		AnnotationAwareOrderComparator.sort(initializers);
 		for (WebApplicationInitializer initializer : initializers) {
+			/**
+			 * 调用它的 onStartup 方法，指向我们的 top.ybq87.MyStarter
+			 * 但是我们自己没有实现 onStartup 方法，所以去看他的父类找
+			 */
 			initializer.onStartup(servletContext);
 		}
 	}

@@ -531,7 +531,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 			 * 初始化 web 容器
 			 */
 			this.webApplicationContext = initWebApplicationContext();
-			// 拓展点
+			// 拓展点，交给开发人员在初始化之后做点事情
 			initFrameworkServlet();
 		}
 		catch (ServletException | RuntimeException ex) {
@@ -564,7 +564,8 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	protected WebApplicationContext initWebApplicationContext() {
 		/**
 		 * 获取 AnnotationConfigServletWebServerApplicationContext 类型的web容器
-		 * 得到父容器
+		 * 即得到父容器 rootContext 是 WebApplicationContext 类型的，
+		 * 记得之前在父容器的初始化时，将父容器注册到了 应用的上下文么，所以这里可以得到父容器
 		 */
 		WebApplicationContext rootContext =
 				WebApplicationContextUtils.getWebApplicationContext(getServletContext());
@@ -584,6 +585,10 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 						// 设置父子容器关联
 						cwac.setParent(rootContext);
 					}
+					/**
+					 * 1、刷新 springmvc 的上下文，即初始化子容器，
+					 * 2、触发一个 spring 的监听事件
+					 */
 					configureAndRefreshWebApplicationContext(cwac);
 				}
 			}
@@ -599,7 +604,12 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 			// No context instance is defined for this servlet -> create a local one
 			wac = createWebApplicationContext(rootContext);
 		}
-
+		
+		/**
+		 * 在子容器初始化之后，触发了 spring 的 ApplicationListener 事件，调用
+		 * org.springframework.web.servlet.FrameworkServlet.ContextRefreshListener#onApplicationEvent(org.springframework.context.event.ContextRefreshedEvent)
+		 * 回去修改 refreshEventReceived = true，这里再次判定一下，避免事件没有触发。
+		 */
 		if (!this.refreshEventReceived) {
 			// Either the context is not a ConfigurableApplicationContext with refresh
 			// support or the context injected at construction time had already been
@@ -697,9 +707,16 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 			}
 		}
 
+		// 子容器绑定 servlet 对象
 		wac.setServletContext(getServletContext());
 		wac.setServletConfig(getServletConfig());
 		wac.setNamespace(getNamespace());
+		/**
+		 * 重点！！！
+		 * 注册一个 ContextRefreshListener 监听器，注意它是 spring 的监听器，继承自 ApplicationListener
+		 * 在 spring 容器初始化后调用它的 onApplicationEvent 方法。【注意目前子容器还没有初始化，所以只是创建但是没有调用】
+		 * 我们去看看这个方法干了些什么
+		 */
 		wac.addApplicationListener(new SourceFilteringListener(wac, new ContextRefreshListener()));
 
 		// The wac environment's #initPropertySources will be called in any case when the context
@@ -712,6 +729,9 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 
 		postProcessWebApplicationContext(wac);
 		applyInitializers(wac);
+		/**
+		 * 刷新子容器
+		 */
 		wac.refresh();
 	}
 
@@ -850,8 +870,15 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * @param event the incoming ApplicationContext event
 	 */
 	public void onApplicationEvent(ContextRefreshedEvent event) {
+		/**
+		 * spring 子容器事件接收到了。记住这个标记
+		 */
 		this.refreshEventReceived = true;
 		synchronized (this.onRefreshMonitor) {
+			/**
+			 * 刷新方法，交给子类实现
+			 * org.springframework.web.servlet.DispatcherServlet#onRefresh(org.springframework.context.ApplicationContext)
+			 */
 			onRefresh(event.getApplicationContext());
 		}
 	}
@@ -1208,6 +1235,9 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 
 		@Override
 		public void onApplicationEvent(ContextRefreshedEvent event) {
+			/**
+			 * spring 容器初始化之后调用 onApplicationEvent 方法
+			 */
 			FrameworkServlet.this.onApplicationEvent(event);
 		}
 	}

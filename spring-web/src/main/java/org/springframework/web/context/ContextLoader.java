@@ -252,6 +252,9 @@ public class ContextLoader {
 	 * using the application context provided at construction time, or creating a new one
 	 * according to the "{@link #CONTEXT_CLASS_PARAM contextClass}" and
 	 * "{@link #CONFIG_LOCATION_PARAM contextConfigLocation}" context-params.
+	 *
+	 * 初始化我们的跟容器的上下文对象, 在子类 contextInitialized() 方法调用该方法
+	 *
 	 * @param servletContext current servlet context
 	 * @return the new WebApplicationContext
 	 * @see #ContextLoader(WebApplicationContext)
@@ -275,23 +278,40 @@ public class ContextLoader {
 		try {
 			// Store context in local instance variable, to guarantee that
 			// it is available on ServletContext shutdown.
+			/**
+			 * 在使用 xml 版本的时候，这里的 context 是空的，所以会去创建 根容器
+			 * 但是在 javaconfig 版本的时候，我们使用的是有参有参构造方法创建的 ContextLoaderListener，所以有值
+			 */
 			if (this.context == null) {
 				this.context = createWebApplicationContext(servletContext);
 			}
+			/**
+			 * 不为空，ConfigurableWebApplicationContext 类型的
+			 */
 			if (this.context instanceof ConfigurableWebApplicationContext) {
+				// 是的话，就转为该类型
 				ConfigurableWebApplicationContext cwac = (ConfigurableWebApplicationContext) this.context;
+				// 容器是否激活，目前分析么有激活
 				if (!cwac.isActive()) {
 					// The context has not yet been refreshed -> provide services such as
 					// setting the parent context, setting the application context id, etc
+					// 是否有入容器，根容器是没有父容器的
 					if (cwac.getParent() == null) {
 						// The context instance was injected without an explicit parent ->
 						// determine parent for root web application context, if any.
 						ApplicationContext parent = loadParentContext(servletContext);
 						cwac.setParent(parent);
 					}
+					/**
+					 * 配置和刷新容器，此时 根容器才初始化。
+					 */
 					configureAndRefreshWebApplicationContext(cwac, servletContext);
 				}
 			}
+			/**
+			 * 将根容器保存到应用【tomcat】上下文
+			 * 之后在 springweb 容器中可以通过 ServletContext 取出。
+			 */
 			servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, this.context);
 
 			ClassLoader ccl = Thread.currentThread().getContextClassLoader();
@@ -382,10 +402,17 @@ public class ContextLoader {
 						ObjectUtils.getDisplayString(sc.getContextPath()));
 			}
 		}
-
+		// 将应用的上下文设置到根容器
 		wac.setServletContext(sc);
+		/**
+		 <context-param>
+			 <param-name>contextConfigLocation</param-name>
+			 <param-value>/WEB-INF/app-context.xml</param-value>
+		 </context-param>
+		 */
 		String configLocationParam = sc.getInitParameter(CONFIG_LOCATION_PARAM);
 		if (configLocationParam != null) {
+			// 配置文件路径保存到根容器
 			wac.setConfigLocation(configLocationParam);
 		}
 
@@ -396,8 +423,9 @@ public class ContextLoader {
 		if (env instanceof ConfigurableWebEnvironment) {
 			((ConfigurableWebEnvironment) env).initPropertySources(sc, null);
 		}
-
+		// 定制一些参数
 		customizeContext(sc, wac);
+		// 刷新容器，这个就是我们 spring 的 ioc 内容部分了。
 		wac.refresh();
 	}
 

@@ -53,9 +53,12 @@ public abstract class AbstractAnnotationConfigDispatcherServletInitializer
 	@Override
 	@Nullable
 	protected WebApplicationContext createRootApplicationContext() {
+		// 获取父容器的配置类，抽象方法，所以是交给子类实现，也就是 top.ybq87.MyStarter.getRootConfigClasses
 		Class<?>[] configClasses = getRootConfigClasses();
 		if (!ObjectUtils.isEmpty(configClasses)) {
+			// 创建我们的根容器
 			AnnotationConfigWebApplicationContext context = new AnnotationConfigWebApplicationContext();
+			// 把配置类加载到根容器中
 			context.register(configClasses);
 			return context;
 		}
@@ -71,6 +74,7 @@ public abstract class AbstractAnnotationConfigDispatcherServletInitializer
 	 */
 	@Override
 	protected WebApplicationContext createServletApplicationContext() {
+		// 和我们实例化父容器一样的操作
 		AnnotationConfigWebApplicationContext context = new AnnotationConfigWebApplicationContext();
 		Class<?>[] configClasses = getServletConfigClasses();
 		if (!ObjectUtils.isEmpty(configClasses)) {

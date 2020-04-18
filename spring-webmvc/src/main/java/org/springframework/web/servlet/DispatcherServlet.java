@@ -156,6 +156,49 @@ import org.springframework.web.util.WebUtils;
  *       		FrameworkServlet
  *       		    DispatcherServlet
  *
+ * springmvc 项目启动的配置文件 web.xml 主要的几个部分：
+ *
+ * 1、用于启动 springmvc 子容器
+ *  <servlet>
+ * 	    <servlet-name>springMVC</servlet-name>
+ * 	    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+ *     	<init-param>
+ * 		    <param-name>contextConfigLocation</param-name>
+ * 		    <param-value>classpath*:spring-mvc.xml</param-value>
+ * 	    </init-param>
+ * 	    <load-on-startup>1</load-on-startup>
+ *  </servlet>
+ *
+ * 2、用于启动 springmvc 的父容器，也就是 spring 容器
+ *  <listener>
+ *  	<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+ *  </listener>
+ *  <context-param>
+ * 	 <param-name>contextConfigLocation</param-name>
+ * 	 <param-value>classpath*:spring-common.xml</param-value>
+ *  </context-param>
+ *
+ *  3、视图解析器（非必须）
+ *     <bean id="viewResolver"
+ *           class="org.springframework.web.servlet.view.freemarker.FreeMarkerViewResolver">
+ *         <property name="suffix" value=".html"/>
+ *         <property name="contentType" value="text/html;charset=UTF-8"/>
+ *         <property name="order" value="1"/>
+ *     </bean>
+ *
+ * 4、文件上传组件（非必须）
+ *     <bean id="multipartResolver"
+ *           class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+ *         <property name="maxUploadSize" value="1048576000"/>
+ *         <property name="defaultEncoding" value="UTF-8"/>
+ *     </bean>
+ *
+ * DispatcherServlet 继承自 HttpServletBean，最终也是一个 Servlet，所以会被应用服务器调用它的 init 初始化方法。
+ * 我们找到了 HttpServletBean 中。
+ * 1、org.springframework.web.servlet.HttpServletBean#init()
+ * 2、org.springframework.web.servlet.FrameworkServlet#initServletBean()
+ * 3、org.springframework.web.servlet.FrameworkServlet#initWebApplicationContext()
+ *
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @author Rob Harrop
@@ -450,7 +493,7 @@ public class DispatcherServlet extends FrameworkServlet {
      */
     public DispatcherServlet(WebApplicationContext webApplicationContext) {
         /**
-         * 将 webApplicationContext 注入到 DispatcherServlet
+         * 将 webApplicationContext【子容器】 注入到 DispatcherServlet，
          */
         super(webApplicationContext);
         setDispatchOptionsRequest(true);
@@ -540,27 +583,37 @@ public class DispatcherServlet extends FrameworkServlet {
     }
     
     /**
-     * 用于初始化我们springmvc 的九大组件
+     * 用于初始化我们 springmvc 的九大组件
      * Initialize the strategy objects that this servlet uses.
      * <p>May be overridden in subclasses in order to initialize further strategy objects.
      */
     protected void initStrategies(ApplicationContext context) {
-        // 初始化 web 上下文对象的 用于文件上传下载的解析器对象
-        initMultipartResolver(context);
+		/**
+		 * 初始化 web 上下文对象的 用于文件上传下载的解析器对象
+		 * 处理 multipart-form-data 类型请求
+		 */
+		initMultipartResolver(context);
         // 初始化 国际化资源
         initLocaleResolver(context);
         // 初始化 主题解析器
         initThemeResolver(context);
-        // 初始化 handlermappings
-        initHandlerMappings(context);
-        // 初始化 handleradapters
-        initHandlerAdapters(context);
+		/**
+		 * 初始化 handlermappings，handlerMapper 存储的是 uri 对应的 Controller 处理类。
+		 * 当 DispatcherServlet 接受到客户端的请求后，SpringMVC 通过 uri 在 handlermappings 定位到 Controller 处理类
+		 */
+		initHandlerMappings(context);
+		/**
+		 * 初始化 handleradapters，我们拿到了 controller 就要调用它的对应的方法。adapter 负责方法调用。
+		 */
+		initHandlerAdapters(context);
         // 初始化 异常处理器
         initHandlerExceptionResolvers(context);
         //
         initRequestToViewNameTranslator(context);
-        // view 解析器
-        initViewResolvers(context);
+		/**
+		 * view 解析器
+		 */
+		initViewResolvers(context);
         initFlashMapManager(context);
     }
     
@@ -656,15 +709,21 @@ public class DispatcherServlet extends FrameworkServlet {
      *  1、https://www.jianshu.com/p/c92197e1c892
      */
     private void initHandlerMappings(ApplicationContext context) {
-        this.handlerMappings = null;
-        
-        if (this.detectAllHandlerMappings) {
+		this.handlerMappings = null;
+	
+		/**
+		 * 是否查找所有的 handler。默认 true
+		 */
+		if (this.detectAllHandlerMappings) {
             // Find all HandlerMappings in the ApplicationContext, including ancestor contexts.
             /**
-             * 从 spring web 容器找到所有 HandlerMapping 接口的实现类的 bean
+             * 从子容器【springmvc】获取所有实现了 HandlerMapping 接口的实现类。如果我们不自定义的话，默认这里会找到 2 个
+			 * BeanNameUrlHandlerMapping：这个是spring 以前版本提供的注册 controller 的方法
+			 * RequestMappingHandlerMapping：@Controller 注解的方式。
              */
             Map<String, HandlerMapping> matchingBeans =
                     BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
+            // 找到了
             if (!matchingBeans.isEmpty()) {
                 this.handlerMappings = new ArrayList<>(matchingBeans.values());
                 // We keep HandlerMappings in sorted order.
@@ -697,10 +756,17 @@ public class DispatcherServlet extends FrameworkServlet {
      * we default to SimpleControllerHandlerAdapter.
      */
     private void initHandlerAdapters(ApplicationContext context) {
-        this.handlerAdapters = null;
+		/**
+		 * 这里和我们的 handlerMappings 一样的设计逻辑，
+		 */
+		this.handlerAdapters = null;
         
         if (this.detectAllHandlerAdapters) {
             // Find all HandlerAdapters in the ApplicationContext, including ancestor contexts.
+			/**
+			 * 找到所有实现了 HandlerAdapter 接口的实现类。如果不自定义，我们可以找到 3 个
+			 * RequestMappingHandlerAdapter、HttpRequestHandlerAdapter、SimpleControllerHandlerAdapter
+			 */
             Map<String, HandlerAdapter> matchingBeans =
                     BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerAdapter.class, true, false);
             if (!matchingBeans.isEmpty()) {
