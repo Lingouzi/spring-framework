@@ -393,7 +393,9 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	@Nullable
 	public final HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
 		/**
-		 * 1、调用具体的实现去获取 handler
+		 * 1、调用具体的实现去获取 handler(controller)
+		 * AbstractUrlHandlerMapping#getHandlerInternal
+		 * uri 得到 method 处理类
 		 */
 		Object handler = getHandlerInternal(request);
 		if (handler == null) {
@@ -410,7 +412,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 		}
 		
 		/**
-		 * 获取执行链
+		 * 通过 uri，去配置的拦截器 interceptor 看看是否有匹配的拦截器，加入处理链
 		 */
 		HandlerExecutionChain executionChain = getHandlerExecutionChain(handler, request);
 
@@ -421,6 +423,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 			logger.debug("Mapped to " + executionChain.getHandler());
 		}
 
+		// 处理跨越的
 		if (hasCorsConfigurationSource(handler) || CorsUtils.isPreFlightRequest(request)) {
 			CorsConfiguration config = (this.corsConfigurationSource != null ? this.corsConfigurationSource.getCorsConfiguration(request) : null);
 			CorsConfiguration handlerConfig = getCorsConfiguration(handler, request);
@@ -471,13 +474,17 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	 * @see #getAdaptedInterceptors()
 	 */
 	protected HandlerExecutionChain getHandlerExecutionChain(Object handler, HttpServletRequest request) {
+		//创建我们处理器执行链对象
 		HandlerExecutionChain chain = (handler instanceof HandlerExecutionChain ?
 				(HandlerExecutionChain) handler : new HandlerExecutionChain(handler));
-
+		//从我们的请求中获取我们的请求映射路径
 		String lookupPath = this.urlPathHelper.getLookupPathForRequest(request, LOOKUP_PATH);
+		//循环获取我们的所有的拦截器对象
 		for (HandlerInterceptor interceptor : this.adaptedInterceptors) {
+			//判断拦截器对象是不是实现  HandlerInterceptor
 			if (interceptor instanceof MappedInterceptor) {
 				MappedInterceptor mappedInterceptor = (MappedInterceptor) interceptor;
+				//通过路径匹配 看该拦截器是否会拦截本次请求路径
 				if (mappedInterceptor.matches(lookupPath, this.pathMatcher)) {
 					chain.addInterceptor(mappedInterceptor.getInterceptor());
 				}
@@ -486,6 +493,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 				chain.addInterceptor(interceptor);
 			}
 		}
+		//返回我们的拦截器链执行器对象
 		return chain;
 	}
 

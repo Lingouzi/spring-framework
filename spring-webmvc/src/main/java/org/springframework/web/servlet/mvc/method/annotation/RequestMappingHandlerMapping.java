@@ -70,6 +70,8 @@ import org.springframework.web.servlet.mvc.method.RequestMappingInfoHandlerMappi
  * switches to being on by default so that path matching becomes constrained
  * to registered suffixes only.
  *
+ * 这个类的父类实现了 InitializingBean 接口，所以在 bean 加载完成后会自动调用 afterPropertiesSet
+ *
  * @author Arjen Poutsma
  * @author Rossen Stoyanchev
  * @author Sam Brannen
@@ -186,7 +188,10 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		this.config.setTrailingSlashMatch(useTrailingSlashMatch());
 		this.config.setRegisteredSuffixPatternMatch(useRegisteredSuffixPatternMatch());
 		this.config.setContentNegotiationManager(getContentNegotiationManager());
-
+		
+		/**
+		 * 查看父类的方法
+		 */
 		super.afterPropertiesSet();
 	}
 

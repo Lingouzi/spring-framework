@@ -156,48 +156,9 @@ import org.springframework.web.util.WebUtils;
  *       		FrameworkServlet
  *       		    DispatcherServlet
  *
- * springmvc 项目启动的配置文件 web.xml 主要的几个部分：
- *
- * 1、用于启动 springmvc 子容器
- *  <servlet>
- * 	    <servlet-name>springMVC</servlet-name>
- * 	    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
- *     	<init-param>
- * 		    <param-name>contextConfigLocation</param-name>
- * 		    <param-value>classpath*:spring-mvc.xml</param-value>
- * 	    </init-param>
- * 	    <load-on-startup>1</load-on-startup>
- *  </servlet>
- *
- * 2、用于启动 springmvc 的父容器，也就是 spring 容器
- *  <listener>
- *  	<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
- *  </listener>
- *  <context-param>
- * 	 <param-name>contextConfigLocation</param-name>
- * 	 <param-value>classpath*:spring-common.xml</param-value>
- *  </context-param>
- *
- *  3、视图解析器（非必须）
- *     <bean id="viewResolver"
- *           class="org.springframework.web.servlet.view.freemarker.FreeMarkerViewResolver">
- *         <property name="suffix" value=".html"/>
- *         <property name="contentType" value="text/html;charset=UTF-8"/>
- *         <property name="order" value="1"/>
- *     </bean>
- *
- * 4、文件上传组件（非必须）
- *     <bean id="multipartResolver"
- *           class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
- *         <property name="maxUploadSize" value="1048576000"/>
- *         <property name="defaultEncoding" value="UTF-8"/>
- *     </bean>
- *
- * DispatcherServlet 继承自 HttpServletBean，最终也是一个 Servlet，所以会被应用服务器调用它的 init 初始化方法。
- * 我们找到了 HttpServletBean 中。
- * 1、org.springframework.web.servlet.HttpServletBean#init()
- * 2、org.springframework.web.servlet.FrameworkServlet#initServletBean()
- * 3、org.springframework.web.servlet.FrameworkServlet#initWebApplicationContext()
+ * 我们分析一条 request 是如何执行的，然后找到对应的 controller
+ * 1、请求过来之后，调用 org.springframework.web.servlet.DispatcherServlet#doService(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)
+ * 2、
  *
  * @author Rod Johnson
  * @author Juergen Hoeller
@@ -401,7 +362,7 @@ public class DispatcherServlet extends FrameworkServlet {
     
     /** List of HandlerMappings used by this servlet. */
     /**
-     * HandlerMapping 负责映射用户的 URL 和对应的处理类
+     * HandlerMapping 负责映射用户的 URI 和对应的处理类（controller）
      */
     @Nullable
     private List<HandlerMapping> handlerMappings;
@@ -697,16 +658,6 @@ public class DispatcherServlet extends FrameworkServlet {
      * Initialize the HandlerMappings used by this class.
      * <p>If no HandlerMapping beans are defined in the BeanFactory for this namespace,
      * we default to BeanNameUrlHandlerMapping.
-     *
-     * 去容器中获取我们的HandlerMapping接口的实现类
-     *	1)requestMappingHandlerMapping  用于处理我们的 @RequestMapping
-     *  2)viewControllerHandlerMapping  用于处理我们的 view 到页面的转发，不会经过我们的控制器对象
-     *  3)beanNameHandlerMapping(BeanNameUrlHandlerMapping)
-     *  4)resourceHandlerMapping:
-     *  5)defaultServletHandlerMapping:
-     *
-     *  参考：
-     *  1、https://www.jianshu.com/p/c92197e1c892
      */
     private void initHandlerMappings(ApplicationContext context) {
 		this.handlerMappings = null;
@@ -717,9 +668,34 @@ public class DispatcherServlet extends FrameworkServlet {
 		if (this.detectAllHandlerMappings) {
             // Find all HandlerMappings in the ApplicationContext, including ancestor contexts.
             /**
-             * 从子容器【springmvc】获取所有实现了 HandlerMapping 接口的实现类。如果我们不自定义的话，默认这里会找到 2 个
-			 * BeanNameUrlHandlerMapping：这个是spring 以前版本提供的注册 controller 的方法
-			 * RequestMappingHandlerMapping：@Controller 注解的方式。
+             * 从子容器【springmvc】获取所有实现了 HandlerMapping 接口的实现类。
+			 *
+			 * 1、没有加 @EnableWebMvc 注解的时候，且自己没有实现 HanlderMapping 的就会跳到最后使用默认的 HanlderMapping
+			 * 2、如果我们在 springmvc 配置类加入了注解 @EnableWebMvc ，查看注解 @Import(DelegatingWebMvcConfiguration.class)
+			 * 导入了 DelegatingWebMvcConfiguration，而它的父类 WebMvcConfigurationSupport 是一个配置类, 配置了
+			 * 1)requestMappingHandlerMapping  用于处理我们的 @RequestMapping
+			 * 2)beanNameHandlerMapping(BeanNameUrlHandlerMapping) 基于 BeanName 映射请求
+			 * ---
+			 * 3)viewControllerHandlerMapping  用于处理我们的view 到页面的转发，不会经过我们的控制器对象
+			 * 4)resourceHandlerMapping:资源映射
+			 * 5)defaultServletHandlerMapping: 处理静态资源文件
+			 ******
+			 * 说回这里，我的 demo 使用了 @EnableWebMvc 注解，所以这里解析到了 3 个 HandlerMapping
+			 * requestMappingHandlerMapping、beanNameHandlerMapping、routerFunctionMapping
+			 * 这 3 个 bean 在 springmvc 容器初始化的时候被初始化。
+			 * 我们以 requestMappingHandlerMapping 为例，这个类的父类 实现了 InitializingBean 接口。
+			 * InitializingBean 接口为 bean 提供了属性初始化后的处理方法，它只包括 afterPropertiesSet 方法，
+			 * 凡是继承该接口的类，在bean的属性初始化后都会执行该方法。
+			 *
+			 * 我们看 org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping#afterPropertiesSet()
+			 * 调用到了 org.springframework.web.servlet.handler.AbstractHandlerMethodMapping#initHandlerMethods()
+			 *
+			 * 经过一系列的处理，我们得到了 uri 和 method 的对应关系
+			 * 【至于方法的调用，在后面使用 调用链的 adapter 去调用】
+			 *
+			 * 在用户发起请求时，经过 doService，会有异步获取处理链的时候，会通过 uri 获取到的这里注册的方法。
+			 *
+			 * 参考：https://segmentfault.com/a/1190000012461362
              */
             Map<String, HandlerMapping> matchingBeans =
                     BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
@@ -741,8 +717,14 @@ public class DispatcherServlet extends FrameworkServlet {
         
         // Ensure we have at least one HandlerMapping, by registering
         // a default HandlerMapping if no other mappings are found.
+		/**
+		 * 确保有至少有一个 HandlerMapping，如果前面没有找到就使用默认的 HandlerMapping
+		 */
         if (this.handlerMappings == null) {
-            this.handlerMappings = getDefaultStrategies(context, HandlerMapping.class);
+			/**
+			 * 没有使用 @EnableWebMvc 注解，进入默认方法
+			 */
+			this.handlerMappings = getDefaultStrategies(context, HandlerMapping.class);
             if (logger.isTraceEnabled()) {
                 logger.trace("No HandlerMappings declared for servlet '" + getServletName() +
                         "': using default strategies from DispatcherServlet.properties");
@@ -764,8 +746,18 @@ public class DispatcherServlet extends FrameworkServlet {
         if (this.detectAllHandlerAdapters) {
             // Find all HandlerAdapters in the ApplicationContext, including ancestor contexts.
 			/**
-			 * 找到所有实现了 HandlerAdapter 接口的实现类。如果不自定义，我们可以找到 3 个
-			 * RequestMappingHandlerAdapter、HttpRequestHandlerAdapter、SimpleControllerHandlerAdapter
+			 * 找到所有实现了 HandlerAdapter 接口的实现类。
+			 * 区分是否使用了注解 @EnableWebMvc
+			 * 1、没使用，调用默认方法
+			 * 2、使用了，注册了几个方法 RequestMappingHandlerAdapter、SimpleControllerHandlerAdapter、HttpRequestHandlerAdapter
+			 * 同我们分析 handlerMapping 时一样，在 bean 属性赋值后调用 InitializingBean 接口 afterPropertiesSet 方法
+			 *
+			 * org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter#afterPropertiesSet()
+			 *
+			 * 用户发起请求后，走到调用链，在经过 handlerMapping 拿到 uri 对应的 method 后，会调用合适的 adapter 进行方法调用。
+			 * 1、如果是 @Controller 注解类的方法，通过反射调用
+			 * 2、如果是实现的接口，可以直接调用。
+			 *
 			 */
             Map<String, HandlerAdapter> matchingBeans =
                     BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerAdapter.class, true, false);
@@ -1025,6 +1017,7 @@ public class DispatcherServlet extends FrameworkServlet {
     /**
      * Exposes the DispatcherServlet-specific request attributes and delegates to {@link #doDispatch}
      * for the actual dispatching.
+	 * 请求来了之后进入此方法
      */
     @Override
     protected void doService(HttpServletRequest request, HttpServletResponse response) throws Exception {
@@ -1045,9 +1038,15 @@ public class DispatcherServlet extends FrameworkServlet {
         }
         
         // Make framework objects available to handlers and view objects.
+		/**
+		 * 将 spring 上下文对象存入 request 的 attribute
+		 */
         request.setAttribute(WEB_APPLICATION_CONTEXT_ATTRIBUTE, getWebApplicationContext());
+        // 国际化支持解析器放入 request
         request.setAttribute(LOCALE_RESOLVER_ATTRIBUTE, this.localeResolver);
+        // 主题解析器
         request.setAttribute(THEME_RESOLVER_ATTRIBUTE, this.themeResolver);
+        // 主题对象
         request.setAttribute(THEME_SOURCE_ATTRIBUTE, getThemeSource());
         
         if (this.flashMapManager != null) {
@@ -1061,7 +1060,7 @@ public class DispatcherServlet extends FrameworkServlet {
         
         try {
             /**
-             * 核心逻辑
+             * 核心逻辑，处理请求
              */
             doDispatch(request, response);
         } finally {
@@ -1113,13 +1112,19 @@ public class DispatcherServlet extends FrameworkServlet {
      * to find the first that supports the handler class.
      * <p>All HTTP methods are handled by this method. It's up to HandlerAdapters or handlers
      * themselves to decide which methods are acceptable.
+	 *
+	 * 依据请求找到对应的 controller 中的方法
+	 *
      * @param request current HTTP request
      * @param response current HTTP response
      * @throws Exception in case of any kind of processing failure
      */
     protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
         HttpServletRequest processedRequest = request;
-        HandlerExecutionChain mappedHandler = null;
+		/**
+		 * 声明一个处理器执行链，
+		 */
+		HandlerExecutionChain mappedHandler = null;
         boolean multipartRequestParsed = false;
         
         WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
@@ -1129,13 +1134,24 @@ public class DispatcherServlet extends FrameworkServlet {
             Exception dispatchException = null;
             
             try {
-                // 检查是否是文件上传请求，特殊处理
-                processedRequest = checkMultipart(request);
+				/**
+				 * 检查是否是文件上传请求，特殊处理，
+				 * 判断 request 请求头是否有 multipart-form-data ，说明是文件上传请求
+				 */
+				processedRequest = checkMultipart(request);
+				
+				/**
+				 * 判断是不是我们文件上传的请求 若是的话返回的processedRequest是MultipartHttpServletRequest
+				 * 那么显然和原始的request对象 不是同一个对象,那么就multipartRequestParsed为true(表示文件上传下载)
+				 */
                 multipartRequestParsed = (processedRequest != request);
                 
                 // Determine handler for the current request.
                 /**
-                 * 1、获取对应的 handler
+                 * 1、从我们当前的请求中推断出我们的 HandlerExecuteChain 处理器执行链对象
+				 * 重点！！
+				 * 经过这一步，通过 uri 获取到一个对应的 controller 的 method 方法
+				 * 同时在 处理链加入了 适配的拦截器。
                  */
                 mappedHandler = getHandler(processedRequest);
                 if (mappedHandler == null) {
@@ -1146,7 +1162,8 @@ public class DispatcherServlet extends FrameworkServlet {
                 
                 // Determine handler adapter for the current request.
                 /**
-                 * 2、获取对应的 handlerAdapter 适配器
+                 * 2、获取对应的 handlerAdapter 适配器，
+				 * 默认是 @RequestMappingHandlerAdapter 对象, 用于调用上一步获取的 method的，但是这一步还没有真正的执行方法
                  */
                 HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
                 
@@ -1168,7 +1185,9 @@ public class DispatcherServlet extends FrameworkServlet {
                 // Actually invoke the handler.
                 /**
                  * 3、调用 handle，执行请求
-                 */
+				 * 通过我们的适配器真正的调用我们的目标方法
+				 * org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter#handle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object)
+				 */
                 mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
                 
                 if (asyncManager.isConcurrentHandlingStarted()) {
@@ -1177,7 +1196,9 @@ public class DispatcherServlet extends FrameworkServlet {
                 
                 // 如果函数调用没有返回视图，则使用默认的
                 applyDefaultViewName(processedRequest, mv);
-                // 执行拦截器
+				/**
+				 * 触发我们拦截器链的post方法
+				 */
                 mappedHandler.applyPostHandle(processedRequest, response, mv);
             } catch (Exception ex) {
                 dispatchException = ex;
@@ -1187,12 +1208,18 @@ public class DispatcherServlet extends FrameworkServlet {
                 dispatchException = new NestedServletException("Handler dispatch failed", err);
             }
             /**
-             * 4、处理返回结果
+             * 4、处理目标方法返回的结果,主要就是渲染视图
              */
             processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
         } catch (Exception ex) {
+			/**
+			 * 抛出异常:处理我们拦截器的 afterCompletion 方法
+			 */
             triggerAfterCompletion(processedRequest, response, mappedHandler, ex);
         } catch (Throwable err) {
+			/**
+			 * 抛出异常:处理我们拦截器的 afterCompletion 方法
+			 */
             triggerAfterCompletion(processedRequest, response, mappedHandler,
                     new NestedServletException("Handler processing failed", err));
         } finally {
@@ -1203,6 +1230,9 @@ public class DispatcherServlet extends FrameworkServlet {
                 }
             } else {
                 // Clean up any resources used by a multipart request.
+				/**
+				 * 清除文件上传时候生成的临时文件
+				 */
                 if (multipartRequestParsed) {
                     cleanupMultipart(processedRequest);
                 }
@@ -1348,18 +1378,28 @@ public class DispatcherServlet extends FrameworkServlet {
     /**
      * Return the HandlerExecutionChain for this request.
      * <p>Tries all handler mappings in order.
+	 *
+	 * 根据我们的Request的请求来推断出我们的 处理器执行链对象
+	 *
      * @param request current HTTP request
      * @return the HandlerExecutionChain, or {@code null} if no handler could be found
      */
     @Nullable
     protected HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
-        if (this.handlerMappings != null) {
+		/**
+		 * 判断 springmvc 容器中配置的 handlerMappings ，
+		 * handlerMappings 是在 springmvc 容器初始化时注册到容器的
+		 * org.springframework.web.servlet.DispatcherServlet#initHandlerMappings(org.springframework.context.ApplicationContext)
+		 */
+		if (this.handlerMappings != null) {
             /**
              * 遍历所有的 mapping，得到对应的处理类，
              */
             for (HandlerMapping mapping : this.handlerMappings) {
-                // 得到能够处理的 handler，看方法详情
-                // org.springframework.web.servlet.handler.AbstractHandlerMapping.getHandler
+				/**
+				 * 得到能够处理的 handler，看方法详情
+				 * org.springframework.web.servlet.handler.AbstractHandlerMapping.getHandler
+				 */
                 HandlerExecutionChain handler = mapping.getHandler(request);
                 if (handler != null) {
                     return handler;

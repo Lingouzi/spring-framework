@@ -556,16 +556,28 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	@Override
 	public void afterPropertiesSet() {
 		// Do this first, it may add ResponseBody advice beans
+		/**
+		 * 1、实例化 @ControllerAdvice 组件等等
+		 */
 		initControllerAdviceCache();
-
+		
+		/**
+		 * 2、为我们加入容器中各种参数解析器对象
+		 */
 		if (this.argumentResolvers == null) {
 			List<HandlerMethodArgumentResolver> resolvers = getDefaultArgumentResolvers();
 			this.argumentResolvers = new HandlerMethodArgumentResolverComposite().addResolvers(resolvers);
 		}
+		/**
+		 * 3、解析我们的@InitBinder注解标注的方法的参数解析器对象
+		 */
 		if (this.initBinderArgumentResolvers == null) {
 			List<HandlerMethodArgumentResolver> resolvers = getDefaultInitBinderArgumentResolvers();
 			this.initBinderArgumentResolvers = new HandlerMethodArgumentResolverComposite().addResolvers(resolvers);
 		}
+		/**
+		 * 4、返回值解析器对象
+		 */
 		if (this.returnValueHandlers == null) {
 			List<HandlerMethodReturnValueHandler> handlers = getDefaultReturnValueHandlers();
 			this.returnValueHandlers = new HandlerMethodReturnValueHandlerComposite().addHandlers(handlers);
@@ -576,22 +588,32 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		if (getApplicationContext() == null) {
 			return;
 		}
-
+		/**
+		 * 传入web上下文对象,查找容器中标注了@ControllerAdvice组件的bean
+		 */
 		List<ControllerAdviceBean> adviceBeans = ControllerAdviceBean.findAnnotatedBeans(getApplicationContext());
 
 		List<Object> requestResponseBodyAdviceBeans = new ArrayList<>();
-
+		// 循环我们的所有的@ControllerAdvice的集合
 		for (ControllerAdviceBean adviceBean : adviceBeans) {
+			// 获取我们的bean的class类型
 			Class<?> beanType = adviceBean.getBeanType();
 			if (beanType == null) {
 				throw new IllegalStateException("Unresolvable type for ControllerAdviceBean: " + adviceBean);
 			}
+			/**
+			 * 获取class类中所有标注了 @ModelAttribute 注解
+			 */
 			Set<Method> attrMethods = MethodIntrospector.selectMethods(beanType, MODEL_ATTRIBUTE_METHODS);
+			//标注了@ModelAttribute标注的方法不为空
 			if (!attrMethods.isEmpty()) {
+				//加入到map中
 				this.modelAttributeAdviceCache.put(adviceBean, attrMethods);
 			}
+			//查找全局的@InitBinder注解标标注的方法
 			Set<Method> binderMethods = MethodIntrospector.selectMethods(beanType, INIT_BINDER_METHODS);
 			if (!binderMethods.isEmpty()) {
+				//不为空加入到缓存中
 				this.initBinderAdviceCache.put(adviceBean, binderMethods);
 			}
 			if (RequestBodyAdvice.class.isAssignableFrom(beanType) || ResponseBodyAdvice.class.isAssignableFrom(beanType)) {
@@ -772,27 +794,38 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 			HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {
 
 		ModelAndView mav;
+		// 检查请求对象
 		checkRequest(request);
 
 		// Execute invokeHandlerMethod in synchronized block if required.
+		/**
+		 * 判断当前是否需要支持在同一个 session 中只能线性地处理请求
+		 * 因为锁是通过 synchronized 是 JVM 进程级，所以在分布式环境下，
+		 * 无法达到同步相同 Session 的功能。默认情况下，synchronizeOnSession 为 false
+		 */
 		if (this.synchronizeOnSession) {
+			// 获取当前请求的session对象
 			HttpSession session = request.getSession(false);
 			if (session != null) {
+				// 为当前session生成一个唯一的可以用于锁定的key
 				Object mutex = WebUtils.getSessionMutex(session);
 				synchronized (mutex) {
+					// 对 HandlerMethod 进行参数等的适配处理，并调用目标handler
 					mav = invokeHandlerMethod(request, response, handlerMethod);
 				}
 			}
 			else {
 				// No HttpSession available -> no mutex necessary
+				// 如果当前不存在session，则直接对HandlerMethod进行适配
 				mav = invokeHandlerMethod(request, response, handlerMethod);
 			}
 		}
 		else {
 			// No synchronization on session demanded at all...
+			// 如果当前不需要对session进行同步处理，则直接对HandlerMethod进行适配
 			mav = invokeHandlerMethod(request, response, handlerMethod);
 		}
-
+		//判断当前请求头中是否包含Cache-Control请求头，如果不包含，则对当前response进行处理
 		if (!response.containsHeader(HEADER_CACHE_CONTROL)) {
 			if (getSessionAttributesHandler(handlerMethod).hasSessionAttributes()) {
 				applyCacheSeconds(response, this.cacheSecondsForSessionAttributeHandlers);
@@ -835,25 +868,56 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	@Nullable
 	protected ModelAndView invokeHandlerMethod(HttpServletRequest request,
 			HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {
-
+		/**
+		 * 把我们的请求req resp包装成 ServletWebRequest
+		 */
 		ServletWebRequest webRequest = new ServletWebRequest(request, response);
 		try {
+			// 获取容器中全局配置的InitBinder和当前HandlerMethod所对应的Controller中
+			// 配置的InitBinder，用于进行参数的绑定
 			WebDataBinderFactory binderFactory = getDataBinderFactory(handlerMethod);
+			// 获取容器中全局配置的ModelAttribute和当前HandlerMethod所对应的Controller
+			// 中配置的ModelAttribute，这些配置的方法将会在目标方法调用之前进行调用
 			ModelFactory modelFactory = getModelFactory(handlerMethod, binderFactory);
-
+			/**
+			 *将 handlerMethod 封装为一个 ServletInvocableHandlerMethod 对象，
+			 *该对象用于对当前request的整体调用流程进行了封装
+			 * HanlderMethod
+			 * 	  --InvocableHandlerMethod:invokeForRequest()
+			 * 	  	--ServletInvocableHandlerMethod:invokeAndHandle()
+			 */
 			ServletInvocableHandlerMethod invocableMethod = createInvocableHandlerMethod(handlerMethod);
+			/**
+			 * 为我们的invocableMethod(ServletInvocableHandlerMethod)设置参数解析器对象
+			 * argumentResolvers的初始化就是在RequestMappingHandlerAdapter的生命周期回调
+			 * afterPropertiesSet()方法进行对argumentResolvers初始化赋值,用于解析参数
+			 */
 			if (this.argumentResolvers != null) {
 				invocableMethod.setHandlerMethodArgumentResolvers(this.argumentResolvers);
 			}
+			/**
+			 * 为我们的invocableMethod(ServletInvocableHandlerMethod)设置参数解析器对象
+			 * argumentResolvers的初始化就是在RequestMappingHandlerAdapter的生命周期回调
+			 * afterPropertiesSet()方法进行对returnValueHandlers初始化赋值,用于解析返回值
+			 */
 			if (this.returnValueHandlers != null) {
 				invocableMethod.setHandlerMethodReturnValueHandlers(this.returnValueHandlers);
 			}
+			// 将前面创建的WebDataBinderFactory设置到ServletInvocableHandlerMethod中
 			invocableMethod.setDataBinderFactory(binderFactory);
+			// 设置ParameterNameDiscoverer，该对象将按照一定的规则获取当前参数的名称
 			invocableMethod.setParameterNameDiscoverer(this.parameterNameDiscoverer);
-
+			// 这里initModel()方法主要作用是调用前面获取到的@ModelAttribute标注的方法，
+			// 从而达到@ModelAttribute标注的方法能够在目标Handler调用之前调用的目的
 			ModelAndViewContainer mavContainer = new ModelAndViewContainer();
 			mavContainer.addAllAttributes(RequestContextUtils.getInputFlashMap(request));
+			/**
+			 * 调用我们标注了@ModelAttribute的方法,主要是为我们的目标方法预加载
+			 */
 			modelFactory.initModel(webRequest, mavContainer, invocableMethod);
+			/**
+			 * 重定向的时候，忽略model中的数据
+			 */
 			mavContainer.setIgnoreDefaultModelOnRedirect(this.ignoreDefaultModelOnRedirect);
 
 			AsyncWebRequest asyncWebRequest = WebAsyncUtils.createAsyncWebRequest(request, response);
@@ -875,15 +939,19 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 				});
 				invocableMethod = invocableMethod.wrapConcurrentResult(result);
 			}
-
+			/**
+			 * 对请求参数进行处理，调用目标HandlerMethod，并且将返回值封装为一个ModelAndView对象
+			 */
 			invocableMethod.invokeAndHandle(webRequest, mavContainer);
 			if (asyncManager.isConcurrentHandlingStarted()) {
 				return null;
 			}
-
+			// 对封装的ModelAndView进行处理，主要是判断当前请求是否进行了重定向，如果进行了重定向，
+			// 还会判断是否需要将FlashAttributes封装到新的请求中
 			return getModelAndView(mavContainer, modelFactory, webRequest);
 		}
 		finally {
+			// 调用request destruction callbacks和对SessionAttributes进行处理
 			webRequest.requestCompleted();
 		}
 	}
