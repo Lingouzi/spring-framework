@@ -553,11 +553,10 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
              * 为什么这里是 6 个呢？请参看 org.springframework.context.annotation.AnnotationConfigApplicationContext#register(java.lang.Class[])
              * 在容器启动时调用构造方法先注册了几个基本的 BeanDefinition，【不是这里注册的】
              ****** xml：
-             * xml 方式的只定义了一个 person 的 bean，然后使用 beans.xml 来注入她。
-             * 执行完这一步之后结果：
              * beanfactory 先开始是 null 的，现场创建，然后解析 beans.xml 文件中定义的 bean 得到 BeanDefinition 注册进 beanfactory
-             * beanDefinitionNames.size = 1,且就是我们定义的 person,
-             * singletonObjects.size = 0，
+			 * 这一步是解析所有 xml 文件里面注册的 bean，然后如果有扫包，那么就进行扫包，然后将扫到的类的定义也注册，
+			 * 所以这一步其实只是得到了各种 BeanDefinition，但是并没有做进一步的处理。
+			 * 【因为 bean 都没有实例化，所以谈不上依赖注入】
              */
             ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
             
@@ -589,7 +588,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
                  * 关于后置处理器和 bean 生命周期的一个比喻，借鉴的是图灵学院的老师的说法
                  *
                  * BeanDefinition  ---------| BeanDefinitionRegistryPostProcessor、BeanFactoryPostProcessor |-->>  getBean 获取 bean 定义，生成 bean --| BeanPostProcessor |->> bean 实例化好，放入单例缓存池
-                 * 受精卵（人的 DNA 已经定死）--| 但是可以通过基因编辑修改 DNA、去除缺陷基因 |------------------------->> 出生的那一刻 ------------------------| 整容改变容貌 |------->> 18 岁
+                 * 受精卵（人的 DNA 已经定死）--| 但是可以通过基因编辑修改 DNA、去除缺陷基因 |---------------------------->> 出生的那一刻 ------------------------| 整容改变容貌 |-------->> 18 岁
                  *
                  * 我们类比，就知道 BeanFactoryPostProcessor 和 BeanPostProcessor 都是对 bean 进行一些特别的修改，
                  * 只不过 BeanFactoryPostProcessor 针对的是 BeanDefinition，而 BeanPostProcessor 针对的是 bean 实例
@@ -598,18 +597,23 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
                 
                 // Invoke factory processors registered as beans in the context.
                 /**
-                 * 5、调用 BeanFactory 的后置处理器，注意上面的说明，我们在 getBean 之前会执行 BeanDefinitionRegistryPostProcessor、BeanFactoryPostProcessor 这 2 个接口的实现类
+                 * 5、调用 BeanFactory 的后置处理器，注意上面的说明，我们在 getBean 之前会执行
+				 * BeanDefinitionRegistryPostProcessor、BeanFactoryPostProcessor 这 2 个接口的实现类
                  * 而且 BeanDefinitionRegistryPostProcessor 在 BeanFactoryPostProcessor 之前执行。
                  ***** annotation 方式启动容器，
-                 * 会在这一步扫到所有需要注入的 BeanDefinition
+                 * 在这里才会去扫到所有使用了注解注入的 BeanDefinition，
                  ***** xml 方式启动容器
                  * 在 obtainFreshBeanFactory() 方法创建 BeanFactory 时，会去扫包得到要注入的 BeanDefinition，同时支持注解模式。
+				 *****
+				 * 在这一步执行方法之前使用了 getbean 去实例化了各种 PostProcessor，然后调用方法的。
+				 *
                  */
                 invokeBeanFactoryPostProcessors(beanFactory);
     
                 // Register bean processors that intercept bean creation.
                 /**
-                 * 6、注册 BeanPostProcessor 后置处理器，这个我认为应该叫环绕处理器比较恰当，因为他负责在 bean 的初始化前后进行方法调用，她有 2 个方法：before，after
+                 * 6、注册 BeanPostProcessor 后置处理器，这个我认为应该叫环绕处理器比较恰当，因为他负责在 bean 的初始化前后进行方法调用，
+				 * 她有 2 个方法：before，after
                  * 我们通过方法名称就知道，这一步只是进行了方法注册【实例化之后注册进 beanfactory 的 beanPostProcessors 参数中，等待后面再执行】
                  * 但是他并没有执行接口的方法回调。
                  */
@@ -886,7 +890,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
      */
     protected void invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory) {
         /**
-         * 5.1、传入 beanfactory , 通过 getBeanFactoryPostProcessors() 获取 beanFactoryPostProcessors 后置处理器（但是由于没有任何实例化过程，所以传递进来的 beanFactoryPostProcessors 是空的）
+         * 5.1、传入 beanfactory , 通过 getBeanFactoryPostProcessors() 获取 beanFactoryPostProcessors 后置处理器
+		 * （但是由于没有任何实例化过程，所以传递进来的 beanFactoryPostProcessors 是空的）
          * 然后调用 invokeBeanFactoryPostProcessors
          */
         PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(beanFactory, getBeanFactoryPostProcessors());

@@ -54,7 +54,9 @@ final class PostProcessorRegistrationDelegate {
 	/**
 	 * 此方法的逻辑：分析当前的项目是否有 bean 实现了接口 BeanFactoryPostProcessor 或者其子接口 BeanDefinitionRegistryPostProcessor
 	 * 得到他的 BeanDefinition 信息，然后实例化这个类，然后调用它的 PostProcessor 方法，如果它还实现了优先级接口或者 order 接口就优先执行这些，
-	 * 另外，实现了 BeanDefinitionRegistryPostProcessor 接口的实例优先执行他的 postProcessBeanDefinitionRegistry，然后是它的 postProcessBeanFactory 方法
+	 * 另外，实现了 BeanDefinitionRegistryPostProcessor 接口的实例
+	 * 		优先执行他的 postProcessBeanDefinitionRegistry，
+	 * 		然后是它的 postProcessBeanFactory 方法
 	 * 然后才是实现了 BeanFactoryPostProcessor 接口的 postProcessBeanFactory 方法。
 	 * --- BeanDefinitionRegistryPostProcessor
 	 *     --- postProcessBeanDefinitionRegistry
@@ -87,11 +89,6 @@ final class PostProcessorRegistrationDelegate {
 			// 循环传递来的 beanFactoryPostProcessors，默认如果你没有自定义实现，是没有的。
 			/**
 			 * 循环目前有的 beanFactoryPostProcessors ，循环找到 BeanDefinitionRegistryPostProcessor 类型的，就直接执行方法调用，然后将它保存到 registryProcessors
-			 *******
-			 * 解析 @Configuration @Component、@PropertySources、@ComponentScans、@ComponentScan、@Import、@Bean、@ImportResource等 的配置类
-			 * 就是调用的 ConfigurationClassPostProcessor 的 postProcessBeanDefinitionRegistry 方法
-			 * org.springframework.context.annotation.ConfigurationClassPostProcessor#postProcessBeanDefinitionRegistry()
-			 *
 			 ********
 			 * 但是使用 annotation 方式 debug 进来发现这里 beanFactoryPostProcessors.size = 0 是没有值得
 			 * xml 配置的方式这里 也是 0；
@@ -126,7 +123,13 @@ final class PostProcessorRegistrationDelegate {
 			/**
 			 * 获取到 BeanDefinitionRegistryPostProcessor 处理器的名称
 			 * 经过一系列的对比，BeanDefinition 的 key 去得到 bean 定义信息，然后得到他的实现类，然后对比是否是 BeanDefinitionRegistryPostProcessor 的子类。
-			 * 如果没有特殊情况，annotation 模式下 ：有一个 internalConfigurationAnnotationProcessor 是此类型的。xml 模式下 postProcessorNames.length = 0
+			 * 如果没有特殊情况，
+			 ******* annotation 模式下 ：
+			 * 有一个 internalConfigurationAnnotationProcessor 是此类型的。
+			 * 这个 BeanDefinition 是在什么时候被加入到 BeanFactory 的呢？
+			 * 是在 AnnotationConfigApplicationContext 的无参构造器中创建 reader 时注册的 BeanDefinition
+			 ******* xml 模式下
+			 * postProcessorNames.length = 0
 			 */
 			String[] postProcessorNames =
 					beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false);
@@ -135,7 +138,7 @@ final class PostProcessorRegistrationDelegate {
 				// 是否实现了 PriorityOrdered 接口【优先级】
 				if (beanFactory.isTypeMatch(ppName, PriorityOrdered.class)) {
 					/**
-					 * 显式调用 getBean() 的方式获取出该对象，然后加入到我们上面定义的集合中。
+					 * 显式调用 getBean() 的方式获取出该对象，然后加入到我们上面定义的集合中。【目前方法还么有调用】
 					 * 经过此步骤之后，beanfactory 中的 singletonObjects 中就有 4 个单例对象的，之前的 3 个是：systemEnvironment、environment、systemProperties
 					 */
 					currentRegistryProcessors.add(beanFactory.getBean(ppName, BeanDefinitionRegistryPostProcessor.class));
@@ -148,8 +151,14 @@ final class PostProcessorRegistrationDelegate {
 			// 记录
 			registryProcessors.addAll(currentRegistryProcessors);
 			/**
-			 * 回调方法, 如果是 annotation 启动的容器，第一个注册的 processor 是 currentRegistryProcessors = ConfigurationClassPostProcessor
+			 * 回调方法,
+			 ********
+			 * 如果是 annotation 启动的容器，第一个注册的 processor 是 currentRegistryProcessors = ConfigurationClassPostProcessor
 			 * 会去执行他的回调，查看源码发现 spring 在这里对整个项目进行包扫描【依据配置的路径】，得到了所有需要注入的 bean 的 BeanDefinition
+			 * 解析 @Configuration @Component、@PropertySources、@ComponentScans、@ComponentScan、@Import、@Bean、@ImportResource等 的配置类
+			 * 就是调用的 ConfigurationClassPostProcessor 的 postProcessBeanDefinitionRegistry 方法
+			 * org.springframework.context.annotation.ConfigurationClassPostProcessor#postProcessBeanDefinitionRegistry()
+			 *
 			 * 所以和 xml 的获取所有 BeanDefinition 时机不太一样
 			 *
 			 * 只是获取，但是还没有执行这些 PostProcessor 的回调

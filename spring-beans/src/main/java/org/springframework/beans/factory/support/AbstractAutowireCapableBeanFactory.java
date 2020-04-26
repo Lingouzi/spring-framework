@@ -520,6 +520,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			 * 在分析到代理对象时可以详细看看
 			 * 我们查看生成代理对象的 代码：exposedObject = initializeBean(beanName, exposedObject, mbd);
 			 * 下面这一步其实是和 aop 和事务相关的，关键位置，在这里会解析 aop 切换信息，并进行缓存。
+			 *
+			 * aop 切面分析之后将增强信息缓存起来。在类的实例化初始化返回时增强返回代理对象
 			 */
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
@@ -582,7 +584,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 		if (instanceWrapper == null) {
 			/**
-			 * 使用合适的实例化策略来创建新的实例：工厂方法、构造函数自动注入、简单初始化 该方法很复杂也很重要
+			 ******** 在这里实例化对象。
+			 *
+			 * 使用合适的实例化策略来创建新的实例：
+			 * 工厂方法、构造函数自动注入、简单初始化 该方法很复杂也很重要
 			 */
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
@@ -637,7 +642,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		Object exposedObject = bean;
 		try {
 			/**
-			 * bean 属性进行赋值 (调用set方法进行赋值)
+			 * bean 属性进行赋值 (调用set方法进行赋值) 依赖注入在这里【@Autowired处理器的调用】
 			 */
 			populateBean(beanName, mbd, instanceWrapper);
 			/**
@@ -1212,12 +1217,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				 * 【很重要，很重要】
 				 * 在 aop 中，@EnableAspectJAutoProxy 注解为容器导入了 AnnotationAwareAspectJAutoProxyCreator
 				 * 这个类主要功能就是根据 @Point 注解定义的切点，来自动代理与表达式匹配的类。也就是这个类来找到要代理的类
-				 *
+				 * aop 的实现参看：org.springframework.aop.framework.autoproxy.AbstractAutoProxyCreator#postProcessBeforeInstantiation(java.lang.Class, java.lang.String)
 				 *****
 				 * 事务注解 @EnableTransactionManagement 为我们的容器导入了 InfrastructureAdvisorAutoProxyCreator
 				 * 都是实现了 BeanPostProcessor 接口，InstantiationAwareBeanPostProcessor接口，
 				 * 进行后置处理器解析切面。
-				 * aop 的实现参看：org.springframework.aop.framework.autoproxy.AbstractAutoProxyCreator#postProcessBeforeInstantiation(java.lang.Class, java.lang.String)
 				 */
 				Object result = ibp.postProcessBeforeInstantiation(beanClass, beanName);
 				if (result != null) {
@@ -1905,7 +1909,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		Object wrappedBean = bean;
 		if (mbd == null || !mbd.isSynthetic()) {
-			// 后置处理器，@postcust 注解的方法
+			// 后置处理器，@PostConstuct 注解的方法
 			wrappedBean = applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
 		}
 
