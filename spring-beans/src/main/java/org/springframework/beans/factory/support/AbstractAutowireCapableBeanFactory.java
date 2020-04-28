@@ -602,7 +602,12 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		synchronized (mbd.postProcessingLock) {
 			if (!mbd.postProcessed) {
 				try {
-					// 进行后置处理 @AutoWired 的注解的预解析，调用了 BeanDefinitionPostProcessor
+					/**
+					 * 进行后置处理 @AutoWired 的注解的预解析
+					 * 将 bean 中被 @Autowried（当然还包括 @Value、@Inject）修饰的field、method找出来，封装成 InjectionMetadata 对象并缓存起来
+					 * 缓存到了AutowiredAnnotationBeanPostProcessor的Map<String, InjectionMetadata> injectionMetadataCache属性中
+					 * 具体属性赋值不在这里，是 populateBean 的工作。
+					 */
 					applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
 				}
 				catch (Throwable ex) {
@@ -1151,6 +1156,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		for (BeanPostProcessor bp : getBeanPostProcessors()) {
 			if (bp instanceof MergedBeanDefinitionPostProcessor) {
 				MergedBeanDefinitionPostProcessor bdp = (MergedBeanDefinitionPostProcessor) bp;
+				/**
+				 * 如果是解析 @Configuration 注解，走的是 CommonAnnotationBeanPostProcessor 的方法
+				 * 如果是解析 @Autowired 注解，走的是 和 AutowiredAnnotationBeanPostProcessor 的方法
+				 */
 				bdp.postProcessMergedBeanDefinition(mbd, beanType, beanName);
 			}
 		}
@@ -1527,6 +1536,12 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			for (BeanPostProcessor bp : getBeanPostProcessors()) {
 				if (bp instanceof InstantiationAwareBeanPostProcessor) {
 					InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
+					/**
+					 * 假设我们解析 @Autowired 注解，这里会调用 AutowiredAnnotationBeanPostProcessor 的方法。
+					 * 之前我们知道通过 applyMergedBeanDefinitionPostProcessors 方法
+					 * 将 bean 中被 @Autowried（当然还包括 @Value、@Inject）修饰的field、method找出来，封装成 InjectionMetadata 对象并缓存起来
+					 * 这一步就是对已有的属性进行赋值。
+					 */
 					PropertyValues pvsToUse = ibp.postProcessProperties(pvs, bw.getWrappedInstance(), beanName);
 					if (pvsToUse == null) {
 						if (filteredPds == null) {
@@ -1545,6 +1560,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			}
 		}
 		if (needsDepCheck) {
+			//依赖检查，对应depends-on属性，3.0已经弃用此属性
 			if (filteredPds == null) {
 				filteredPds = filterPropertyDescriptorsForDependencyCheck(bw, mbd.allowCaching);
 			}
@@ -1552,9 +1568,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 		
 		/**
-		 * 上面都是获取需要注入的属性，然后封装到 PropertyValues 中
-		 * 还没有应用到实例化的 bean 中，下面这一步就是完成这个操作的。
-		 * 【只是保存了要设置的属性和对应的值】
+		 * 上面都是获取需要注入的属性，然后封装到 PropertyValues 中，
+		 * 这一步完成后，
 		 */
 		if (pvs != null) {
 			applyPropertyValues(beanName, mbd, bw, pvs);
@@ -1572,7 +1587,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 */
 	protected void autowireByName(
 			String beanName, AbstractBeanDefinition mbd, BeanWrapper bw, MutablePropertyValues pvs) {
-
+		
+		/**
+		 *
+		 */
 		String[] propertyNames = unsatisfiedNonSimpleProperties(mbd, bw);
 		for (String propertyName : propertyNames) {
 			if (containsBean(propertyName)) {
@@ -1620,15 +1638,18 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				// Don't try autowiring by type for type Object: never makes sense,
 				// even if it technically is a unsatisfied, non-simple property.
 				if (Object.class != pd.getPropertyType()) {
+					// 探测指定属性的set方法
 					MethodParameter methodParam = BeanUtils.getWriteMethodParameter(pd);
 					// Do not allow eager init for type matching in case of a prioritized post-processor.
 					boolean eager = !(bw.getWrappedInstance() instanceof PriorityOrdered);
 					DependencyDescriptor desc = new AutowireByTypeDependencyDescriptor(methodParam, eager);
+					// 解析指定beanName的属性所匹配的值，并把解析到的属性名称存储在autowireBeanNames中
 					Object autowiredArgument = resolveDependency(desc, beanName, autowiredBeanNames, converter);
 					if (autowiredArgument != null) {
 						pvs.add(propertyName, autowiredArgument);
 					}
 					for (String autowiredBeanName : autowiredBeanNames) {
+						// 注册依赖
 						registerDependentBean(autowiredBeanName, beanName);
 						if (logger.isTraceEnabled()) {
 							logger.trace("Autowiring by type from bean name '" + beanName + "' via property '" +

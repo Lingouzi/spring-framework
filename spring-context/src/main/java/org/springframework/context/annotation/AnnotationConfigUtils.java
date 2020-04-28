@@ -180,9 +180,15 @@ public abstract class AnnotationConfigUtils {
 		}
 		
 		/**
+		 * 参看 https://blog.csdn.net/weixin_44367006/article/details/104415733
+		 *
 		 * 注册用于处理 @Autowired 注解的处理器 AutowiredAnnotationBeanPostProcessor
 		 * 全限定类名：org.springframework.context.annotation.internalAutowiredAnnotationProcessor
 		 * 目前此类还没有被创建
+		 *
+		 * AutowiredAnnotationBeanPostProcessor 会：
+		 * 扫描方法和属性上是否有@Autowired @Value注解
+		 * 注意，@Autowired @Value 是 Spring 的注解
 		 */
 		if (!registry.containsBeanDefinition(AUTOWIRED_ANNOTATION_PROCESSOR_BEAN_NAME)) {
 			RootBeanDefinition def = new RootBeanDefinition(AutowiredAnnotationBeanPostProcessor.class);
@@ -191,7 +197,12 @@ public abstract class AnnotationConfigUtils {
 		}
 		
 		/**
-		 * 注册用于处理 @Required 属性的注解处理器【好像 5.2.5 已经启用这个注解了】
+		 * 注册用于处理 @Required 属性的注解处理器
+		 *
+		 * CommonAnnotationBeanPostProcessor 会：
+		 * 扫描方法上是否有@PostConstruct @PreDestroy注解
+		 * 扫描方法和属性上是否有@Resource注解
+		 * 注意，@Resource @PostConstruct @PreDestroy 是 JDK 的注解
 		 */
 		// Check for JSR-250 support, and if present add the CommonAnnotationBeanPostProcessor.
 		if (jsr250Present && !registry.containsBeanDefinition(COMMON_ANNOTATION_PROCESSOR_BEAN_NAME)) {
@@ -220,7 +231,7 @@ public abstract class AnnotationConfigUtils {
 		}
 		
 		/**
-		 * 处理监听方法的注解解析器 EventListenerMethodProcessor
+		 * 处理监听方法 @EventListener 的注解解析器 EventListenerMethodProcessor
 		 */
 		if (!registry.containsBeanDefinition(EVENT_LISTENER_PROCESSOR_BEAN_NAME)) {
 			RootBeanDefinition def = new RootBeanDefinition(EventListenerMethodProcessor.class);
@@ -267,6 +278,7 @@ public abstract class AnnotationConfigUtils {
 
 	static void processCommonDefinitionAnnotations(AnnotatedBeanDefinition abd, AnnotatedTypeMetadata metadata) {
 		AnnotationAttributes lazy = attributesFor(metadata, Lazy.class);
+		// 如果Bean定义中有@Lazy注解，则将该Bean预实例化属性设置为@lazy注解的值
 		if (lazy != null) {
 			abd.setLazyInit(lazy.getBoolean("value"));
 		}
@@ -276,10 +288,16 @@ public abstract class AnnotationConfigUtils {
 				abd.setLazyInit(lazy.getBoolean("value"));
 			}
 		}
-
+		/**
+		 * 如果 Bean 定义中有 @Primary 注解，则为该 Bean 设置为 autowiring 自动依赖注入装配的首选对象
+		 */
 		if (metadata.isAnnotated(Primary.class.getName())) {
 			abd.setPrimary(true);
 		}
+		/**
+		 * 如果Bean定义中有 @DependsOn 注解，则为该Bean设置所依赖的Bean名称，
+		 * 容器将确保在实例化该 Bean 之前首先实例化所依赖的 Bean
+		 */
 		AnnotationAttributes dependsOn = attributesFor(metadata, DependsOn.class);
 		if (dependsOn != null) {
 			abd.setDependsOn(dependsOn.getStringArray("value"));

@@ -70,7 +70,11 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
         /**
          * 初始化 annotation 模式下的 bean 定义扫描器，
          *********
-         * 注解模式下，一些内置的组件定义在这里被解析【@configuration、@Autowired、@Required、事件监听器。】
+         * 注解模式下，一些内置的注解解析器在这里被解析【@configuration、@Autowired、@Required、事件监听器。】
+		 * internalConfigurationAnnotationProcessor 处理 @configuration 等
+		 * internalAutowiredAnnotationProcessor 处理 @Autowired、@Inject、@Value 等
+		 * internalCommonAnnotationProcessor 处理 @Resource 等
+		 *
          * 内置组件定义名称的参考：https://www.jianshu.com/p/2f084156b982
          * 这里注册了 5 个 BeanDefinition，不是后置处理器
          */

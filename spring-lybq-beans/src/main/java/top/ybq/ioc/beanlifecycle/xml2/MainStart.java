@@ -14,7 +14,7 @@ public class MainStart {
     
     public static void main(String[] args) {
         ApplicationContext context = new ClassPathXmlApplicationContext("beans/beans2.xml");
-        IOCService iocService = context.getBean(IOCService.class);
-        System.out.println(iocService.hollo());
+		IOCService ioc = context.getBean(IOCService2Impl.class);
+		ioc.hollo();
     }
 }

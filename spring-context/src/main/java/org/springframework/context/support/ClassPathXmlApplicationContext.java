@@ -165,7 +165,7 @@ public class ClassPathXmlApplicationContext extends AbstractXmlApplicationContex
 			 *********************************
 			 * 在解析之前有几个疑问
 			 * 1、注解什么时候解析的
-			 * 2、注解什么时候被调用的、或者注解是怎么其作用的？
+			 * 2、注解什么时候被调用的、或者注解是怎么起作用的？
 			 * 参考：https://blog.csdn.net/honghailiang888/article/details/74981445 从第四节看
 			 * 我们看这个方法在 invokeBeanFactoryPostProcessors(beanFactory); 的时候
 			 * xml【obtainFreshBeanFactory()就解析了所有的 BeanDefinition 注册到了 BeanFactory】

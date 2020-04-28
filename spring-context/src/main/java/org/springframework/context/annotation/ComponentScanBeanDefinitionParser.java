@@ -75,8 +75,18 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 	private static final String FILTER_TYPE_ATTRIBUTE = "type";
 
 	private static final String FILTER_EXPRESSION_ATTRIBUTE = "expression";
-
-
+	
+	
+	/**
+	 * 此方法的作用就是扫描 basePackages 下的文件，转化为 spring 中的 bean 结构，并将其注册到容器中；
+	 *
+	 * 最后是注册相关组件（主要是注解处理器）。注解需要注解处理器来处理。
+	 *
+	 * @param element the element that is to be parsed into one or more {@link BeanDefinition BeanDefinitions}
+	 * @param parserContext the object encapsulating the current state of the parsing process;
+	 * provides access to a {@link org.springframework.beans.factory.support.BeanDefinitionRegistry}
+	 * @return
+	 */
 	@Override
 	@Nullable
 	public BeanDefinition parse(Element element, ParserContext parserContext) {
@@ -88,14 +98,23 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 		// 参考: https://blog.csdn.net/honghailiang888/article/details/74981445
 		
 		// Actually scan for bean definitions and register them.
-		// 定义一个扫描器，用来扫包
+		/**
+		 * 定义一个扫描器，用来扫包，这个方法主要是创建了 ClassPathBeanDefinitionScanner 实例，
+		 * 然后在它的构造方法中调用了 registerDefaultFilters(); 方法，这个方法是为 this.includeFilters 属性赋值
+		 * 将 @Component 注解加入进入，在后面我们扫包时，加载了所有的 class 文件，在判断是否需要解析为 BeanDefinition 从而注册到 BeanFactory 时
+		 * 会有判定是否在 this.includeFilters 包含了这个 class。
+		 */
 		ClassPathBeanDefinitionScanner scanner = configureScanner(parserContext, element);
 		/**
 		 * 开始扫描，将扫到的 bean 的定义信息 BeanDefinition 注册到 beanfactory 中
 		 * 扫描的是指定包下的所有 class 文件，使用 asm 技术，将符合规则的 bean 转为 BeanDefinition。
+		 * 一些通过注解注册的属性，比如 @Primary、@Description、@Role、@Lazy、@DependsOn 等解析，属性设置到 BeanDefinition 中
+		 * 但是这里居然没有看到我们期望的 @Autowired ？别急，看下一个方法
 		 */
 		Set<BeanDefinitionHolder> beanDefinitions = scanner.doScan(basePackages);
-		// 注册组件
+		/**
+		 * 注册其他相关组件，主要是注解处理器，注解需要注解处理器来处理
+		 */
 		registerComponents(parserContext.getReaderContext(), beanDefinitions, element);
 
 		return null;
@@ -163,7 +182,8 @@ public class ComponentScanBeanDefinitionParser implements BeanDefinitionParser {
 					/**
 					 * 注册注解处理器, 但是这里还没有开始处理注解, 要想使用注解处理器，必须要实例化注解处理器，那么其实例化是在哪里进行的呢，
 					 * 这里还需要回到org.springframework.context.support.AbstractApplicationContext.java中的refresh()函数
-					 * 回看 registerBeanPostProcessors(beanFactory); 方法，才会实例化注解处理器。
+					 * 对注解处理器 AutowiredAnnotationBeanPostProcessor 的实例化是在 registerBeanPostProcessors(beanFactory); 方法
+					 * 因为它继承自 BeanPostProcessor，此类型的 bean 在 registerBeanPostProcessors 被实例化
 					 */
 					AnnotationConfigUtils.registerAnnotationConfigProcessors(readerContext.getRegistry(), source);
 			for (BeanDefinitionHolder processorDefinition : processorDefinitions) {

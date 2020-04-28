@@ -606,6 +606,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
                  * 在 obtainFreshBeanFactory() 方法创建 BeanFactory 时，会去扫包得到要注入的 BeanDefinition，同时支持注解模式。
 				 *****
 				 * 在这一步执行方法之前使用了 getbean 去实例化了各种 PostProcessor，然后调用方法的。
+				 * 回调了方法！！！回调了方法！！！回调了方法！！！
 				 *
                  */
                 invokeBeanFactoryPostProcessors(beanFactory);
@@ -615,7 +616,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
                  * 6、注册 BeanPostProcessor 后置处理器，这个我认为应该叫环绕处理器比较恰当，因为他负责在 bean 的初始化前后进行方法调用，
 				 * 她有 2 个方法：before，after
                  * 我们通过方法名称就知道，这一步只是进行了方法注册【实例化之后注册进 beanfactory 的 beanPostProcessors 参数中，等待后面再执行】
-                 * 但是他并没有执行接口的方法回调。
+                 * 但是他并没有执行接口的方法回调！！没有回调方法！！！没有回调方法！！！没有回调方法！！！
                  */
                 registerBeanPostProcessors(beanFactory);
                 
@@ -892,7 +893,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
         /**
          * 5.1、传入 beanfactory , 通过 getBeanFactoryPostProcessors() 获取 beanFactoryPostProcessors 后置处理器
 		 * （但是由于没有任何实例化过程，所以传递进来的 beanFactoryPostProcessors 是空的）
-         * 然后调用 invokeBeanFactoryPostProcessors
+         * 然后调用 invokeBeanFactoryPostProcessors，实例化一些早期加入的 BeanDefinition，
+		 * 比如注解解析器【@Configuration 注解，@EventListener 等，但是不包含 @Autowired 注解的解析器】。
          */
         PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(beanFactory, getBeanFactoryPostProcessors());
         
@@ -916,6 +918,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
         /**
          * PostProcessorRegistrationDelegate 这个类我们应该比较熟悉了，前面注册和执行 BeanFactoryPostProcessor 的时候用到它，
          * 现在又用到了
+		 * @Autowired 注解的解析器就实在这里实例化的
          */
         PostProcessorRegistrationDelegate.registerBeanPostProcessors(beanFactory, this);
     }

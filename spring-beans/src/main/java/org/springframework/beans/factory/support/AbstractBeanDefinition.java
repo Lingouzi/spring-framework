@@ -451,14 +451,31 @@ public abstract class AbstractBeanDefinition extends BeanMetadataAttributeAccess
 	 * @since 2.5
 	 */
 	public void applyDefaults(BeanDefinitionDefaults defaults) {
+		// 懒加载
 		Boolean lazyInit = defaults.getLazyInit();
 		if (lazyInit != null) {
 			setLazyInit(lazyInit);
 		}
+		/**
+		 * Spring中bean的AutowireMode(自动装配模型)和自动装配技术：https://blog.csdn.net/qq_27409289/article/details/100753656
+		 * spring 注入方式有两种： 1 通过set方法  2 通过构造函数(如果有多个构造函数会选择参数多的构造方法)
+		 * 自动装配技术(手动装配)：
+		 * @Resource: 默认是通过name来查找注入值，如果不存在就报错
+		 * @Autowired 通过类型查找(类型)，然后再通过name
+		 * 以上两种通过反射，然后设置值
+		 * AutowireMode(自动装配模型):在spring中有四种模式分别是: 
+		 * 1 autowire_no(0)： 默认装配模式， 目前非xml配置都是使用这种方式，然后程序员使用注解手动注入
+		 * 2 autowire_name: 通过set方法，并且 set方法的名称需要和bean的name一致     byName
+		 * 3 autowire_type: 通过set方法,并且再根据bean的类型，注入属性，是通过类型配置  byType
+		 * 4 autowire_construcor: 通过构造器注入
+		 */
 		setAutowireMode(defaults.getAutowireMode());
+		// 依赖检查
 		setDependencyCheck(defaults.getDependencyCheck());
+		// bean 初始化方法
 		setInitMethodName(defaults.getInitMethodName());
 		setEnforceInitMethod(false);
+		// bean 销毁方法
 		setDestroyMethodName(defaults.getDestroyMethodName());
 		setEnforceDestroyMethod(false);
 	}

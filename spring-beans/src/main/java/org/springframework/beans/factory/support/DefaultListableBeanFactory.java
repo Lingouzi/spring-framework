@@ -1210,43 +1210,108 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
         
         return null;
     }
-    
+	
+	/**
+	 * 多个地方调用此方法
+	 * 比如 field 注入解析时： AutowiredAnnotationBeanPostProcessor.AutowiredFieldElement#inject
+	 * method 注入解析时： AutowiredAnnotationBeanPostProcessor.AutowiredMethodElement#inject
+	 *
+	 * https://blog.csdn.net/f641385712/article/details/88410362
+	 *
+	 * @param descriptor the descriptor for the dependency (field/method/constructor)
+	 * @param requestingBeanName the name of the bean which declares the given dependency
+	 * @param autowiredBeanNames a Set that all names of autowired beans (used for
+	 * resolving the given dependency) are supposed to be added to
+	 * @param typeConverter the TypeConverter to use for populating arrays and collections
+	 * @return
+	 * @throws BeansException
+	 */
     @Override
     @Nullable
     public Object resolveDependency(DependencyDescriptor descriptor, @Nullable String requestingBeanName,
             @Nullable Set<String> autowiredBeanNames, @Nullable TypeConverter typeConverter) throws BeansException {
-        
-        descriptor.initParameterNameDiscovery(getParameterNameDiscoverer());
+	
+		/**
+		 * 此处使用的是 DefaultParameterNameDiscoverer = getParameterNameDiscoverer() 来获取参数名
+		 */
+		descriptor.initParameterNameDiscovery(getParameterNameDiscoverer());
+		// 支持 Optional,java8
         if (Optional.class == descriptor.getDependencyType()) {
             return createOptionalDependency(descriptor, requestingBeanName);
-        } else if (ObjectFactory.class == descriptor.getDependencyType() ||
+        }
+        // 兼容 ObjectFactory 和 ObjectProvider（spring4.3提供的接口）
+        else if (ObjectFactory.class == descriptor.getDependencyType() ||
                 ObjectProvider.class == descriptor.getDependencyType()) {
             return new DependencyObjectProvider(descriptor, requestingBeanName);
         } else if (javaxInjectProviderClass == descriptor.getDependencyType()) {
             return new Jsr330Factory().createDependencyProvider(descriptor, requestingBeanName);
         } else {
-            Object result = getAutowireCandidateResolver().getLazyResolutionProxyIfNecessary(
+			/**
+			 * 正常情况一般都走这个 else部分
+			 */
+	
+			/**
+			 * 支持 @Lazy 标注了懒加载，result 就!=null 了
+			 * 解析 @Lazy 注解，spring 不会立即创建注入属性的实例，而是创建代理对象，来代替实例
+			 * 参考：
+			 * https://blog.csdn.net/f641385712/article/details/93620967
+			 * https://blog.csdn.net/f641385712/article/details/88410362
+			 * getLazyResolutionProxyIfNecessary 方法底层也是依赖的 doResolveDependency
+			 * 重点看 doResolveDependency 方法
+			 */
+			Object result = getAutowireCandidateResolver().getLazyResolutionProxyIfNecessary(
                     descriptor, requestingBeanName);
             if (result == null) {
-                result = doResolveDependency(descriptor, requestingBeanName, autowiredBeanNames, typeConverter);
+				/**
+				 * 核心
+				 */
+				result = doResolveDependency(descriptor, requestingBeanName, autowiredBeanNames, typeConverter);
             }
             return result;
         }
     }
-    
+	
+	/**
+	 * autowiredBeanNames参数传入时空，由 AutowiredAnnotationBeanPostProcessor.AutowiredFieldElement#inject 方法传入，
+	 * 会在 inject 方法的后面代码使用到
+	 * @param descriptor
+	 * @param beanName
+	 * @param autowiredBeanNames	初次为空
+	 * @param typeConverter
+	 * @return
+	 * @throws BeansException
+	 */
     @Nullable
     public Object doResolveDependency(DependencyDescriptor descriptor, @Nullable String beanName,
             @Nullable Set<String> autowiredBeanNames, @Nullable TypeConverter typeConverter) throws BeansException {
         
+    	// 注入点，是个 ThreadLocal
         InjectionPoint previousInjectionPoint = ConstructorResolver.setCurrentInjectionPoint(descriptor);
         try {
-            Object shortcut = descriptor.resolveShortcut(this);
+			/**
+			 * 方法 AutowiredAnnotationBeanPostProcessor.ShortcutDependencyDescriptor#resolveShortcut
+			 * 内部方法：beanFactory.getBean(this.shortcut, this.requiredType)
+			 * 这 2 个参数是 ShortcutDependencyDescriptor 的属性，在ShortcutDependencyDescriptor实例化构造时初始化。
+			 * 而 ShortcutDependencyDescriptor 是在 inject 注入完成后才创建，所以这里其实是个缓存效果，属性第一次注入是没有的。
+			 * 如果多次注入同一个属性，就可以从缓存找到了，直接返回。
+			 * 参考：AutowiredAnnotationBeanPostProcessor.AutowiredFieldElement#inject
+			 */
+			Object shortcut = descriptor.resolveShortcut(this);
             if (shortcut != null) {
                 return shortcut;
             }
             
             Class<?> type = descriptor.getDependencyType();
-            Object value = getAutowireCandidateResolver().getSuggestedValue(descriptor);
+	
+			/**
+			 * 注解 @Value 解析，得到被注解的 value 值(字符串)
+			 * 说明 @Value 注解优先级还是很高的。
+			 */
+			Object value = getAutowireCandidateResolver().getSuggestedValue(descriptor);
+			/**
+			 * 解析 @Value 注解
+			 * 占位符、SpEL 表达式
+			 */
             if (value != null) {
                 if (value instanceof String) {
                     String strVal = resolveEmbeddedValue((String) value);
@@ -1264,13 +1329,17 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
                             converter.convertIfNecessary(value, type, descriptor.getMethodParameter()));
                 }
             }
-            
-            Object multipleBeans = resolveMultipleBeans(descriptor, beanName, autowiredBeanNames, typeConverter);
+			/**
+			 * 多值注入支持，注入 Map、List、Collection、Stream(这个在 spring4 以上才支持) 等
+			 */
+			Object multipleBeans = resolveMultipleBeans(descriptor, beanName, autowiredBeanNames, typeConverter);
             if (multipleBeans != null) {
                 return multipleBeans;
             }
-            
-            Map<String, Object> matchingBeans = findAutowireCandidates(beanName, type, descriptor);
+			/**
+			 * 绝大部分情况，都走这里，找到类型匹配的 beans，
+			 */
+			Map<String, Object> matchingBeans = findAutowireCandidates(beanName, type, descriptor);
             if (matchingBeans.isEmpty()) {
                 if (isRequired(descriptor)) {
                     raiseNoMatchingBeanFound(type, descriptor.getResolvableType(), descriptor);
@@ -1280,8 +1349,14 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
             
             String autowiredBeanName;
             Object instanceCandidate;
-            
-            if (matchingBeans.size() > 1) {
+	
+			/**
+			 * 找到多个匹配的 bean，
+			 * 1、是否标注 @Primary，有直接返回这个 bean
+			 * 2、是否标有 javax.annotation.Priority 注解
+			 * 3、根据字段field名，去和beanName匹配  匹配上了也行（这就是为何我们有时候不用@Qulifier也没事的原因之一）
+			 */
+			if (matchingBeans.size() > 1) {
                 autowiredBeanName = determineAutowireCandidate(matchingBeans, descriptor);
                 if (autowiredBeanName == null) {
                     if (isRequired(descriptor) || !indicatesMultipleBeans(type)) {
@@ -1305,7 +1380,11 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
                 autowiredBeanNames.add(autowiredBeanName);
             }
             if (instanceCandidate instanceof Class) {
-                instanceCandidate = descriptor.resolveCandidate(autowiredBeanName, type, this);
+				/**
+				 * AutowiredAnnotationBeanPostProcessor.ShortcutDependencyDescriptor#resolveShortcut
+				 * 去 getBean 确保已经实例化。
+				 */
+				instanceCandidate = descriptor.resolveCandidate(autowiredBeanName, type, this);
             }
             Object result = instanceCandidate;
             if (result instanceof NullBean) {
@@ -1541,6 +1620,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
     @Nullable
     protected String determineAutowireCandidate(Map<String, Object> candidates, DependencyDescriptor descriptor) {
         Class<?> requiredType = descriptor.getDependencyType();
+        // 是否标注 @Primary 注解
         String primaryCandidate = determinePrimaryCandidate(candidates, requiredType);
         if (primaryCandidate != null) {
             return primaryCandidate;

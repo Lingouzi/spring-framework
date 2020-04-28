@@ -202,7 +202,6 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 					else {
 						/**
 						 * 自定义标签的解析, 这个是重点分析的,，如果要测试进入这里，在 xml 中要配置自定义标签，比如加一个开启注解的
-						 *
 						 */
 						delegate.parseCustomElement(ele);
 					}

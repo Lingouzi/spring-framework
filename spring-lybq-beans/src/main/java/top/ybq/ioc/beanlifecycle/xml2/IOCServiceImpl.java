@@ -8,9 +8,10 @@ package top.ybq.ioc.beanlifecycle.xml2;
  * @date 2020/4/14
  */
 public class IOCServiceImpl implements IOCService {
-    
-    @Override
-    public String hollo() {
-        return "Hello,IOC";
-    }
+	
+	@Override
+	public String hollo() {
+		System.out.println("IOCServiceImpl#hollo");
+		return "Hello,IOC";
+	}
 }

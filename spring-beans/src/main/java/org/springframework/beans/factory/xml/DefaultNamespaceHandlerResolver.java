@@ -119,6 +119,9 @@ public class DefaultNamespaceHandlerResolver implements NamespaceHandlerResolver
 		 * 获取所有一级配置的 handler ，getHandlerMappings()：方法获取到所有命名空间对应的 uri，
 		 * 比如 beans.xml 文件中配置包扫描的时候用到的自定义标签<context:component-scan xx>
 		 *     它的对应的 uri = http://www.springframework.org/schema/context，
+		 *
+		 * 研究方法发现其实是去读取配置文件 META-INF/spring.handlers 然后获取到 namespaceUri 对应的 class 的全限定类名
+		 *
 		 * 另外：
 		 * getHandlerMappings()方法有个小坑，我们正常debug进入时发现handlerMappings已经被初始化了，但是我们没有找到任何地方调用它的，除了一个 toString()方法，所以就是因为这个toString的问题导致handlerMappings提前初始化。
 		 * 具体参考： https://www.zhihu.com/question/61890921

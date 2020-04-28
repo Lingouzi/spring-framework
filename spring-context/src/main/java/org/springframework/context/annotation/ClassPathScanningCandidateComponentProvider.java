@@ -416,7 +416,7 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 	private Set<BeanDefinition> scanCandidateComponents(String basePackage) {
 		Set<BeanDefinition> candidates = new LinkedHashSet<>();
 		try {
-			// 组装扫描路径，最后是这样的格式 classpath*:cn/shiyujun/config/**/*.class
+			// 组装扫描路径，最后是这样的格式 classpath*:top/ybq87/config/**/*.class
 			String packageSearchPath = ResourcePatternResolver.CLASSPATH_ALL_URL_PREFIX +
 					resolveBasePackage(basePackage) + '/' + this.resourcePattern;
 			// 得到扫包下的所有的 class 文件路径
@@ -432,7 +432,7 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 						// 得到 class 的元数据，其中包含了每个 class 的注解信息
 						MetadataReader metadataReader = getMetadataReaderFactory().getMetadataReader(resource);
 						/**
-						 * 查看配置类是否有 @Conditional 一系列的注解，然后是否满足注册Bean的条件
+						 * 查看配置类是否有 @Conditional 一系列的注解，然后是否满足注册 Bean 的条件
 						 * 关于条件注解 @Conditional 的解释
 						 * 参考：https://mp.weixin.qq.com/s/RXYIh_g5iU1e3liK-8n5zA
 						 */
@@ -496,11 +496,16 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 	 * @return whether the class qualifies as a candidate component
 	 */
 	protected boolean isCandidateComponent(MetadataReader metadataReader) throws IOException {
+		// 通过excludeFilters 进行是否需要排除的
 		for (TypeFilter tf : this.excludeFilters) {
 			if (tf.match(metadataReader, getMetadataReaderFactory())) {
 				return false;
 			}
 		}
+		/**
+		 * includeFilters 是否需要进行包含的，还记得我们之前在说明 ComponentScanBeanDefinitionParser#parse 时创建的解析类么？
+		 * 会创建一个 ClassPathBeanDefinitionScanner 实例，在它的构造方法中初始化属性时，将 @Component 注册到了 includeFilters
+		 */
 		for (TypeFilter tf : this.includeFilters) {
 			if (tf.match(metadataReader, getMetadataReaderFactory())) {
 				return isConditionMatch(metadataReader);

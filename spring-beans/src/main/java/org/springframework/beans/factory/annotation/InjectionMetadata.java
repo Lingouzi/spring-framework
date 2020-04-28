@@ -117,7 +117,14 @@ public class InjectionMetadata {
 		}
 		this.checkedElements = checkedElements;
 	}
-
+	
+	/**
+	 *
+	 * @param target     目标 bean
+	 * @param beanName
+	 * @param pvs
+	 * @throws Throwable
+	 */
 	public void inject(Object target, @Nullable String beanName, @Nullable PropertyValues pvs) throws Throwable {
 		Collection<InjectedElement> checkedElements = this.checkedElements;
 		Collection<InjectedElement> elementsToIterate =
@@ -127,6 +134,11 @@ public class InjectionMetadata {
 				if (logger.isTraceEnabled()) {
 					logger.trace("Processing injected element of bean '" + beanName + "': " + element);
 				}
+				/**
+				 * 交给 InjectedElement 实现注入，但是他是抽象类，有几个实现
+				 * AutowiredFieldElement：解析 Field，一般我们是属性注入，分析这个。
+				 * AutowiredMethodElement：解析 method
+				 */
 				element.inject(target, beanName, pvs);
 			}
 		}

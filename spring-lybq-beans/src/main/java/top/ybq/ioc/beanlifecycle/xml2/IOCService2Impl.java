@@ -1,5 +1,7 @@
 package top.ybq.ioc.beanlifecycle.xml2;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 /**
@@ -12,8 +14,16 @@ import org.springframework.stereotype.Service;
 @Service(value = "ioc2")
 public class IOCService2Impl implements IOCService {
 	
+	// @Autowired
+	// private X x;
+	
+	@Autowired
+	private IOCService iocService;
+	
 	@Override
 	public String hollo() {
+		System.out.println("IOCService2Impl#hollo");
+		iocService.hollo();
 		return "Hello,IOC";
 	}
 }

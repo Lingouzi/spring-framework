@@ -283,36 +283,47 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 		for (String basePackage : basePackages) {
 			/**
 			 * 此方法扫到所有自动注入的 BeanDefinition，
+			 * 大致的流程如下：
+			 * 1、先根据 context:component-scan 中属性的 base-package="top.ybq87.xx" 配置转换为 classpath*:top/ybq87/ybq87/**\/*.class（默认格式），
+			 * 并扫描对应下的class和jar文件并获取类对应的路径，返回Resources。
+			 * 2、根据指定的不扫描包，指定的扫描包配置进行过滤不包含的包对应下的class和jar。
+			 * 3、封装成BeanDefinition放到队列里。
+			 * 实际上，是把所有包下的 class 文件都扫描了的，并且利用 asm 技术读取 java 字节码并转化为 MetadataReader 中的 AnnotationMetadataReadingVisitor 结构
 			 */
 			Set<BeanDefinition> candidates = findCandidateComponents(basePackage);
 			for (BeanDefinition candidate : candidates) {
-				// 绑定 BeanDefinition 与 Scope
+				// 获取@Scope注解的值，即获取Bean的作用域
 				ScopeMetadata scopeMetadata = this.scopeMetadataResolver.resolveScopeMetadata(candidate);
+				// 为Bean设置作用域
 				candidate.setScope(scopeMetadata.getScopeName());
 				// 查看是否配置类是否指定 bean 的名称，没有指定则使用类名首字母小写
 				String beanName = this.beanNameGenerator.generateBeanName(candidate, this.registry);
 				
 				/**
-				 * 下面两个if是处理 lazy、Autowire、DependencyOn、initMethod、enforceInitMethod、
+				 * 下面两个if是处理 lazy、AutowireMode、DependencyOn、initMethod、enforceInitMethod、
 				 * destroyMethod、enforceDestroyMethod、Primary、Role、Description 这些逻辑的
 				 */
 				if (candidate instanceof AbstractBeanDefinition) {
+					/**
+					 * 主要工作，重点是设置自动装配类型，AutowiredMode
+					 */
 					postProcessBeanDefinition((AbstractBeanDefinition) candidate, beanName);
 				}
-				// 注解 @Primary、@Value、@Lazy、@DependsOn 等解析
+				// 注解 @Primary、@Role、@Lazy、@DependsOn、@Description 等解析，属性设置到 BeanDefinition 中
 				if (candidate instanceof AnnotatedBeanDefinition) {
+					// 配置通过注解设置的属性，设置到 BeanDefinition 中
 					AnnotationConfigUtils.processCommonDefinitionAnnotations((AnnotatedBeanDefinition) candidate);
 				}
-				// 检查 bean 是否存在
+				// 根据 Bean 名称检查指定的 Bean 是否需要在容器中注册，或者在容器中冲突
 				if (checkCandidate(beanName, candidate)) {
 					// 包装
 					BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(candidate, beanName);
+					// 根据注解中配置的作用域，为 Bean 应用相应的代理模式
 					definitionHolder =
-							// 检查 scope 是否创建，为创建则进行创建
 							AnnotationConfigUtils.applyScopedProxyMode(scopeMetadata, definitionHolder, this.registry);
 					beanDefinitions.add(definitionHolder);
 					/**
-					 * 注册
+					 * 把我们解析出来的组件bean定义注册到我们的IOC容器中
 					 */
 					registerBeanDefinition(definitionHolder, this.registry);
 				}
@@ -328,6 +339,7 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 	 * @param beanName the generated bean name for the given bean
 	 */
 	protected void postProcessBeanDefinition(AbstractBeanDefinition beanDefinition, String beanName) {
+		// 看这个方法，主要设置懒加载，自动装配类型等
 		beanDefinition.applyDefaults(this.beanDefinitionDefaults);
 		if (this.autowireCandidatePatterns != null) {
 			beanDefinition.setAutowireCandidate(PatternMatchUtils.simpleMatch(this.autowireCandidatePatterns, beanName));
