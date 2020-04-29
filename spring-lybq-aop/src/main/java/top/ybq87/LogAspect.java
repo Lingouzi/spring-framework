@@ -11,7 +11,9 @@ import org.aspectj.lang.annotation.Pointcut;
 import org.springframework.core.annotation.Order;
 
 /**
- * Created by smlz on 2019/6/10.
+ *
+ * @author smlz
+ * @date 2019/6/10
  */
 @Aspect
 @Order
@@ -36,7 +38,7 @@ public class LogAspect {
     @AfterReturning(value = "pointCut()", returning = "result")
     public void methodReturning(JoinPoint joinPoint, Object result) {
         String methodName = joinPoint.getSignature().getName();
-        System.out.println("执行目标方法【" + methodName + "】的<返回通知>,入参" + Arrays.asList(joinPoint.getArgs()));
+        System.out.println("执行目标方法【" + methodName + "】的<返回通知>,入参" + Arrays.asList(joinPoint.getArgs()) + ";返回值：" + result);
     }
     
     @AfterThrowing(value = "pointCut()")

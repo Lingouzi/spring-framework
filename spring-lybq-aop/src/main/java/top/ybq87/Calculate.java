@@ -2,6 +2,7 @@ package top.ybq87;
 
 /**
  * 计算类接口
+ * @author ly
  */
 public interface Calculate {
 

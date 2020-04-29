@@ -6,6 +6,7 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 
 /**
  * 配置类
+ * @author ly
  */
 @Configuration
 /**
