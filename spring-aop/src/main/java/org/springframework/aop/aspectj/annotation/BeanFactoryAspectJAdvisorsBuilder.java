@@ -82,7 +82,9 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 	 */
 	public List<Advisor> buildAspectJAdvisors() {
 		/**
-		 * 所有 Aspect 类的名称集合
+		 * 所有标注了 @Aspect 注解的名称集合，
+		 *****如果使用注解启动 spring 容器进来，第一个解析的是 config 配置文件类，判断 aspectBeanNames 为 null 去解析了。
+		 * 之后再进来的类因为有缓存了，所以不走下面的 Synchronized 部分代码。
 		 */
 		List<String> aspectNames = this.aspectBeanNames;
 
@@ -92,7 +94,7 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 				if (aspectNames == null) {
 					List<Advisor> advisors = new ArrayList<>();
 					aspectNames = new ArrayList<>();
-					// 获取所有Bean名称
+					// 获取所有 Bean 名称
 					String[] beanNames = BeanFactoryUtils.beanNamesForTypeIncludingAncestors(
 							this.beanFactory, Object.class, true, false);
 					for (String beanName : beanNames) {
@@ -108,6 +110,7 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 						}
 						// 判断 Bean 的 Class 上是否标识 @Aspect 注解
 						if (this.advisorFactory.isAspect(beanType)) {
+							// 符合要求的缓存起来
 							aspectNames.add(beanName);
 							AspectMetadata amd = new AspectMetadata(beanType, beanName);
 							if (amd.getAjType().getPerClause().getKind() == PerClauseKind.SINGLETON) {

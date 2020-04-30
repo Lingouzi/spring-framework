@@ -15,8 +15,8 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
  * 我们执行 calculate.mod 方法，不配置 exposeProxy = true：发现切面只执行了一次
  * 事务的隔离级别应该就是这个原理？
  */
-@EnableAspectJAutoProxy(exposeProxy = true)
-// @EnableAspectJAutoProxy
+// @EnableAspectJAutoProxy(exposeProxy = true)
+@EnableAspectJAutoProxy
 public class MainConfig {
 
     @Bean

@@ -30,6 +30,9 @@ import org.springframework.lang.Nullable;
  * <p>Application developers don't usually need to work with
  * {@code TargetSources} directly: this is an AOP framework interface.
  *
+ *
+ * 参考：http://cmsblogs.com/?p=9229
+ *
  * @author Rod Johnson
  * @author Juergen Hoeller
  */
@@ -39,6 +42,9 @@ public interface TargetSource extends TargetClassAware {
 	 * Return the type of targets returned by this {@link TargetSource}.
 	 * <p>Can return {@code null}, although certain usages of a {@code TargetSource}
 	 * might just work with a predetermined target class.
+	 *
+	 * 目标对象类型
+	 *
 	 * @return the type of targets returned by this {@link TargetSource}
 	 */
 	@Override
@@ -46,6 +52,10 @@ public interface TargetSource extends TargetClassAware {
 	Class<?> getTargetClass();
 
 	/**
+	 * 返回当前 bean 是否是静态的，常见的单例 bean 就是静态的，而 prototype 是动态的
+	 * 这个的主要作用是，对于静态的 bean，spring 是会对其进行缓存的，在多次使用 TargetSource 获取目标 bean时
+	 * 获取的总是同一个对象，提高效率
+	 *
 	 * Will all calls to {@link #getTarget()} return the same object?
 	 * <p>In that case, there will be no need to invoke {@link #releaseTarget(Object)},
 	 * and the AOP framework can cache the return value of {@link #getTarget()}.
@@ -55,6 +65,9 @@ public interface TargetSource extends TargetClassAware {
 	boolean isStatic();
 
 	/**
+	 *
+	 * 获取目标对象
+	 *
 	 * Return a target instance. Invoked immediately before the
 	 * AOP framework calls the "target" of an AOP method invocation.
 	 * @return the target object which contains the joinpoint,

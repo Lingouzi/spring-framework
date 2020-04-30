@@ -178,16 +178,17 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 		 */
 		if (this.currentInterceptorIndex == this.interceptorsAndDynamicMethodMatchers.size() - 1) {
 			/**
-			 * 执行真实的方法。
+			 * 直接调用业务的实际方法。本例中就是 top.ybq87.LybqCalculate#div(int, int)
 			 */
 			return invokeJoinpoint();
 		}
 		/**
-		 * 1、-1 != 5 - 1，currentInterceptorIndex = 0，获取到第 0 个，ExposeInvocationInterceptor，执行他的 invoke 方法，记录当前正在执行的通知到 threadlocal。
-		 * 2、0 != 5 - 1，currentInterceptorIndex = 1，获取到 异常通知，调用 AspectJAfterThrowingAdvice#invoke 方法，
-		 * 3、1 != 5 - 1，currentInterceptorIndex = 2，获取到 返回通知，调用 AfterReturningAdviceInterceptor#invoke
-		 * 4、2 != 5 - 1，currentInterceptorIndex = 3，后置通知，调用 AspectJAfterAdvice#invoke
-		 * 5、3 != 5 - 1，currentInterceptorIndex = 4，后置通知，调用 MethodBeforeAdviceInterceptor#invoke
+		 * 执行顺序：刚开始 currentInterceptorIndex = -1
+		 * 1、-1 != 5 - 1，++currentInterceptorIndex = 0，获取到第 0 个，ExposeInvocationInterceptor，执行他的 invoke 方法，记录当前正在执行的通知到 threadlocal。
+		 * 2、0 != 5 - 1，++currentInterceptorIndex = 1，获取到 异常通知，调用 AspectJAfterThrowingAdvice#invoke 方法，
+		 * 3、1 != 5 - 1，++currentInterceptorIndex = 2，获取到 返回通知，调用 AfterReturningAdviceInterceptor#invoke
+		 * 4、2 != 5 - 1，++currentInterceptorIndex = 3，后置通知，调用 AspectJAfterAdvice#invoke
+		 * 5、3 != 5 - 1，++currentInterceptorIndex = 4，后置通知，调用 MethodBeforeAdviceInterceptor#invoke
 		 * 6、4 == 5 - 1，就进入了上面的 invokeJoinpoint() 方法，直接调用业务的实际方法，在本例式中就是 top.ybq87.LybqCalculate#div(int, int)
 		 * 7、调用完毕看到直接返回了，那么应该返回上一级，指向第 5、步，又直接返回了
 		 * 8、返回到第 4、步，有一个 finally 模块被调用，执行 after 通知，然后又返回了

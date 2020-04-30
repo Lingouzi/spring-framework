@@ -428,6 +428,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		Object result = existingBean;
 		for (BeanPostProcessor processor : getBeanPostProcessors()) {
+			/**
+			 * 如果分析的是 springaop 的切面注解，这里回调 AbstractAutoProxyCreator#postProcessAfterInitialization 方法
+			 */
 			Object current = processor.postProcessAfterInitialization(result, beanName);
 			if (current == null) {
 				return result;
@@ -1185,6 +1188,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					/**
 					 * 后置处理器的【第一次】调用，共有 9 个地方会调用。
 					 * 事务在这里不会被调用，aop 才会
+					 ***** 分析 aop
+					 * 以 beanName = calculate 解析为例
 					 */
 					bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);
 					if (bean != null) {
@@ -1226,7 +1231,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				 * 【很重要，很重要】
 				 * 在 aop 中，@EnableAspectJAutoProxy 注解为容器导入了 AnnotationAwareAspectJAutoProxyCreator
 				 * 这个类主要功能就是根据 @Point 注解定义的切点，来自动代理与表达式匹配的类。也就是这个类来找到要代理的类
-				 * aop 的实现参看：org.springframework.aop.framework.autoproxy.AbstractAutoProxyCreator#postProcessBeforeInstantiation(java.lang.Class, java.lang.String)
+				 * aop 的实现参看：AbstractAutoProxyCreator#postProcessBeforeInstantiation
 				 *****
 				 * 事务注解 @EnableTransactionManagement 为我们的容器导入了 InfrastructureAdvisorAutoProxyCreator
 				 * 都是实现了 BeanPostProcessor 接口，InstantiationAwareBeanPostProcessor接口，
@@ -1936,7 +1941,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		try {
 			/**
-			 * 回调 init 初始化方法
+			 * 调用 bean 配置中的 init-method="xxx"
 			 */
 			invokeInitMethods(beanName, wrappedBean, mbd);
 		}

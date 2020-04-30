@@ -190,7 +190,7 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 			 * 如果配置内部方法调用的增强，这里就是我们在注解 设置的
 			 * @EnableAspectJAutoProxy(exposeProxy = true)
 			 * 这里是通过一个ThreadLocal来保存代理的，在每次调用代理的时候会判断一下exposeProxy是否为true，
-			 * 如果是的话，就通过ThreadLocal保存代理，可通过 cruuetnProxy() 方法获取到代理
+			 * 如果是的话，就通过ThreadLocal保存代理，可通过 currentProxy() 方法获取到代理
 			 * 方法执行完，在 finaly 又将原来的 oldProxy 放回了 ThreadLocal 中。
 			 *
 			 * 这么做就可以实现 a 方法调用 b 方法时，b 使用 a 的代理对象，达到了公用一个事务的目的，事务注解也是这个原理。
@@ -209,6 +209,23 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 			// Get the interception chain for this method.
 			/**
 			 * 获取当前方法的拦截器链
+			 * 这里的 advised 参数是在 JdkDynamicAopProxy 类构造函数中赋值的，调用链
+			 * AbstractApplicationContext#refresh()
+			 * -AbstractApplicationContext#finishBeanFactoryInitialization
+			 * --DefaultListableBeanFactory#preInstantiateSingletons()
+			 * ---AbstractAutowireCapableBeanFactory#createBean
+			 * ----AbstractAutowireCapableBeanFactory#initializeBean
+			 * -----AbstractAutowireCapableBeanFactory#applyBeanPostProcessorsAfterInitialization
+			 * ------AbstractAutoProxyCreator#postProcessAfterInitialization
+			 * -------AbstractAutoProxyCreator#wrapIfNecessary
+			 * --------AbstractAutoProxyCreator#createProxy
+			 * ---------ProxyFactory#getProxy
+			 * 调用 createAopProxy().getProxy(classLoader) 分析 createAopProxy()方法
+			 * 走到 DefaultAopProxyFactory#createAopProxy 去判定需要哪个动态代理，我们分析 calculate 实现了接口，所以走的是
+			 * return new JdkDynamicAopProxy(config)
+			 * 而在 JdkDynamicAopProxy 构造方法中就对 advised = config,
+			 * config 是 ProxyCreatorSupport 类型，它的父类是 AdvisedSupport，其中存储了 advisers
+			 *
 			 */
 			List<Object> chain = this.advised.getInterceptorsAndDynamicInterceptionAdvice(method, targetClass);
 

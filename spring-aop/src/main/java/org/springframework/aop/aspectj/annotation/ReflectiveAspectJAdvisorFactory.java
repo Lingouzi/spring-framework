@@ -124,11 +124,11 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
         
         List<Advisor> advisors = new ArrayList<>();
         /**
-         * 获取这个类所有的增强方法
+         * 获取这个类所有的方法
          */
         for (Method method : getAdvisorMethods(aspectClass)) {
             /**
-             * 生成增强实例
+             * 循环方法，看是否需要增强，返回需要增强的方法。
              */
             Advisor advisor = getAdvisor(method, lazySingletonAspectInstanceFactory, advisors.size(), aspectName);
             if (advisor != null) {
@@ -157,7 +157,7 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
         final List<Method> methods = new ArrayList<>();
         ReflectionUtils.doWithMethods(aspectClass, method -> {
             // Exclude pointcuts
-            // 在 @Aspect 标识的类内部排除 @Pointcut 标识之外的所有方法，得到的方法集合包括继承自父类的方法，包括继承自 Object 的方法
+            // 在 @Aspect 标识的类中找到它所有的方法，只要方法上没有标注 @Pointcut 注解的，都加入到 methods 中。
             if (AnnotationUtils.getAnnotation(method, Pointcut.class) == null) {
                 methods.add(method);
             }
@@ -223,13 +223,13 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
     @Nullable
     private AspectJExpressionPointcut getPointcut(Method candidateAdviceMethod, Class<?> candidateAspectClass) {
         /**
-         * 查询方法上的切面注解，根据注解生成相应类型的AspectJAnnotation,在调用AspectJAnnotation的构造函数的同时
+         * 查询方法上的切面注解，根据注解生成相应类型的 AspectJAnnotation,在调用 AspectJAnnotation 的构造函数的同时
          * 根据注解 value 或 pointcut 属性得到切点表达式，有 argNames 则设置参数名称
          */
         AspectJAnnotation<?> aspectJAnnotation =
                 AbstractAspectJAdvisorFactory.findAspectJAnnotationOnMethod(candidateAdviceMethod);
         /**
-         * 过滤那些不含 @Before, @Around, @After, @AfterReturning, @AfterThrowing注解的方法
+         * 过滤那些不含 @Before, @Around, @After, @AfterReturning, @AfterThrowing 注解的方法
          */
         if (aspectJAnnotation == null) {
             return null;
@@ -252,8 +252,11 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
         
         Class<?> candidateAspectClass = aspectInstanceFactory.getAspectMetadata().getAspectClass();
         validate(candidateAspectClass);
-        
-        AspectJAnnotation<?> aspectJAnnotation =
+	
+		/**
+		 * 找到方法上的注解
+		 */
+		AspectJAnnotation<?> aspectJAnnotation =
                 AbstractAspectJAdvisorFactory.findAspectJAnnotationOnMethod(candidateAdviceMethod);
         if (aspectJAnnotation == null) {
             return null;
