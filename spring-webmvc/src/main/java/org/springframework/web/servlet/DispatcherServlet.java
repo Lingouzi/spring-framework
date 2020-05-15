@@ -671,7 +671,7 @@ public class DispatcherServlet extends FrameworkServlet {
              * 从子容器【springmvc】获取所有实现了 HandlerMapping 接口的实现类。
 			 *
 			 * 1、没有加 @EnableWebMvc 注解的时候，且自己没有实现 HanlderMapping 的就会跳到最后使用默认的 HanlderMapping
-			 * 2、如果我们在 springmvc 配置类加入了注解 @EnableWebMvc ，查看注解 @Import(DelegatingWebMvcConfiguration.class)
+			 * 2、如果我们在 springmvc 配置类加入了注解 @EnableWebMvc ，查看这个注解 @Import(DelegatingWebMvcConfiguration.class)
 			 * 导入了 DelegatingWebMvcConfiguration，而它的父类 WebMvcConfigurationSupport 是一个配置类, 配置了
 			 * 1)requestMappingHandlerMapping  用于处理我们的 @RequestMapping
 			 * 2)beanNameHandlerMapping(BeanNameUrlHandlerMapping) 基于 BeanName 映射请求
@@ -696,6 +696,11 @@ public class DispatcherServlet extends FrameworkServlet {
 			 * 在用户发起请求时，经过 doService，会有异步获取处理链的时候，会通过 uri 获取到的这里注册的方法。
 			 *
 			 * 参考：https://segmentfault.com/a/1190000012461362
+			 *
+			 * 在 springmvc 中对 controller 的定义方式有 2 类，3 种方式
+			 *
+			 * https://www.bilibili.com/video/BV1f7411K7UE?p=3 4 分 47s
+			 *
              */
             Map<String, HandlerMapping> matchingBeans =
                     BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
@@ -722,7 +727,10 @@ public class DispatcherServlet extends FrameworkServlet {
 		 */
         if (this.handlerMappings == null) {
 			/**
-			 * 没有使用 @EnableWebMvc 注解，进入默认方法
+			 * 没有使用 @EnableWebMvc 注解，进入默认方法，得到了 3 个默认的 HandlerMapping
+			 * BeanNameUrlHandlerMapping：参考：https://www.cnblogs.com/EasonJim/p/7482805.html
+			 * RequestMappingHandlerMapping、
+			 * RouterFunctionMapping
 			 */
 			this.handlerMappings = getDefaultStrategies(context, HandlerMapping.class);
             if (logger.isTraceEnabled()) {
@@ -1151,6 +1159,7 @@ public class DispatcherServlet extends FrameworkServlet {
                  * 1、从我们当前的请求中推断出我们的 HandlerExecuteChain 处理器执行链对象
 				 * 重点！！
 				 * 经过这一步，通过 uri 获取到一个对应的 controller 的 method 方法
+				 * （或者是一个类对象，因为注册 controller 的方式有 3 种，但是我们最常用的是用 @RequestMapping 注册 uri）
 				 * 同时在 处理链加入了 适配的拦截器。
                  */
                 mappedHandler = getHandler(processedRequest);
@@ -1162,8 +1171,27 @@ public class DispatcherServlet extends FrameworkServlet {
                 
                 // Determine handler adapter for the current request.
                 /**
-                 * 2、获取对应的 handlerAdapter 适配器，
-				 * 默认是 @RequestMappingHandlerAdapter 对象, 用于调用上一步获取的 method的，但是这一步还没有真正的执行方法
+                 * 2、获取对应的 handlerAdapter 适配器，最终目的是要调用被适配的 handler 方法
+				 * （实际最后调用的是目标 target 的方法，这里注意适配器模式的概念）
+				 * 当前类对象相当于是一个 笔记本，adapter 相当于是电源转换器，而最终我们要将电压 220v 转为 5v。
+				 ******
+				 * 这里通过得到的 handler 类型，找到对应的适配器，通过适配器，可以调用与当前类毫无关系的类的方法。
+				 * 比如我们的 MyBeanNameController 实现了 Controller 接口，得到了 Handler 类是对应的这个实现类
+				 * （本 demo 中就是 MyBeanNameController）
+				 * HandlerAdapter = 通过这个类的实现得到 Adapter = SimpleControllerHandlerAdapter
+				 * 最终在下面会调用 ha.handle 方法，实际走的是 SimpleControllerHandlerAdapter.handle
+				 * 看代码：直接转为了 Controller，然后调用了她的 handleRequest，实际就是 MyBeanNameController#handleRequest
+				 * return ((Controller) handler).handleRequest(request, response)
+				 * 然后分析一下 @RequestMapping 的方式
+				 * 我们得到的是一个 HandlerMethod，然后通过 getAdapter 找到了 AbstractHandlerMethodAdapter
+				 * 调用  AbstractHandlerMethodAdapter#handle 我们分析下代码，发现这里是通过反射调用对应的方法。
+				 * 走到 RequestMappingHandlerAdapter#handleInternal
+				 * 因为 HandlerMethod 已经定位到了具体的 controller 的方法了。
+				 * ---
+				 * 通过上面的 2 个例子，我们应该可以有点意识到了这里用适配器的原因。我们看 dispatcher 这里的职责就是发现请求，找到对应的方法，然后调用
+				 * 但是怎么调用，它不关心，交给适配器去做，不论什么样的请求处理方式，交给对应的适配器去处理。
+				 * dispatcher 只需要调用适配器的统一方法 handle 就可以了。所以即便是来了新的 controller 的处理类，dispatcher 根本不需要修改
+				 * 只要你有对应的适配器就可以拿来用。
                  */
                 HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
                 
@@ -1186,7 +1214,7 @@ public class DispatcherServlet extends FrameworkServlet {
                 /**
                  * 3、调用 handle，执行请求
 				 * 通过我们的适配器真正的调用我们的目标方法
-				 * org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter#handle(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse, java.lang.Object)
+				 * 因为 controller 的定义方式有多种，所以对应的方法调用方式需要做适配。
 				 */
                 mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
                 
@@ -1389,7 +1417,7 @@ public class DispatcherServlet extends FrameworkServlet {
 		/**
 		 * 判断 springmvc 容器中配置的 handlerMappings ，
 		 * handlerMappings 是在 springmvc 容器初始化时注册到容器的
-		 * org.springframework.web.servlet.DispatcherServlet#initHandlerMappings(org.springframework.context.ApplicationContext)
+		 * org.springframework.web.servlet.DispatcherServlet#initHandlerMappings
 		 */
 		if (this.handlerMappings != null) {
             /**
@@ -1435,7 +1463,21 @@ public class DispatcherServlet extends FrameworkServlet {
     protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletException {
         if (this.handlerAdapters != null) {
             for (HandlerAdapter adapter : this.handlerAdapters) {
-                if (adapter.supports(handler)) {
+				/**
+				 * 依据 Handler 的类型【
+				 * HandlerMethod（AbstractHandlerMethodAdapter）、
+				 * 自定义 MyBeanNameController 的类型（SimpleControllerHandlerAdapter）、
+				 * 自定义 MyHttpRequestHandler 类（HttpRequestHandlerAdapter）
+				 * 】 判断找到合适的 adapter
+				 * 1、AbstractHandlerMethodAdapter 中会去判定是否是 HandlerMethod 对象，
+				 * 【那么什么情况下这个 handler 是一个 HandlerMethod？使用注解注册我们的 uri 的时候，会追踪到具体的 method，
+				 * 所以在 HandlerMapping 中存储的是 HandlerMethod 对象】
+				 * 2、HttpRequestHandler 实现了HttpRequestHandler接口的类，那么就判定是否是HttpRequestHandler这个类型
+				 * 因为这个 uri 对应的是一个类
+				 * 3、SimpleControllerHandlerAdapter
+				 * 4、SimpleServletHandlerAdapter 是一个 servlet
+				 */
+				if (adapter.supports(handler)) {
                     return adapter;
                 }
             }

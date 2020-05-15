@@ -7,10 +7,12 @@ import top.ybq87.config.SpringRootApplicationContext;
 /**
  *
  * 在tomcat源码中:
- *  org.apache.catalina.startup.ContextConfig#lifecycleEvent(org.apache.catalina.LifecycleEvent
+ *  org.apache.catalina.startup.ContextConfig#lifecycleEvent
  *  	org.apache.catalina.startup.ContextConfig#configureStart
  *          org.apache.catalina.startup.ContextConfig#webConfig
  *             org.apache.catalina.startup.ContextConfig#processServletContainerInitializers
+ *                 org.apache.catalina.startup.WebappServiceLoader#load
+ *
  *
  * web 应用服务器启动时，按照 SPI 机制，会去我们的应用目录 classpath 下查找 META-INF/services/javax.servlet.ServletContainerInitializer 文件
  * 然后读取文件的内容，得到 org.springframework.web.SpringServletContainerInitializer ，这个就是我们的启动类，

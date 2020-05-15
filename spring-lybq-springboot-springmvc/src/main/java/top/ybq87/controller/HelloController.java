@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import top.ybq87.service.UserService;
 
 /**
+ * 注册 Controller 的第三种方式，使用 @Controller 注解
  * @author ly
  * @blog http://www.ybq87.top
  * @github https://github.com/Lingouzi

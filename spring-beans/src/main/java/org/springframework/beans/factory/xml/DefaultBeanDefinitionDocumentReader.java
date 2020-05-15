@@ -155,7 +155,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 			}
 		}
 
-		// 钩子，留给开发人员去拓展的，实现 DefaultBeanDefinitionDocumentReader 自定义
+		// 拓展点，钩子，留给开发人员去拓展的，实现 DefaultBeanDefinitionDocumentReader 自定义
 		preProcessXml(root);
 		/**
 		 * 重点解析方法

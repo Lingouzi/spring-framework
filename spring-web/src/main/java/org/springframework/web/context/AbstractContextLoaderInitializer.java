@@ -77,7 +77,8 @@ public abstract class AbstractContextLoaderInitializer implements WebApplication
 			   </context-param>
 			 *
 			 * 创建一个监听器对象, 然后将监听器注册到 servlet 上下文，也就是注册到 tomcat
-			 * 我们回到 super.onStartup(servletContext);
+			 * 然后他持有一个 web 容器的引用【目前是空的】
+			 * 我们回到 super.onStartup(servletContext)
 			 */
 			ContextLoaderListener listener = new ContextLoaderListener(rootAppContext);
 			listener.setContextInitializers(getRootApplicationContextInitializers());

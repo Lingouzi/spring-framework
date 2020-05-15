@@ -393,7 +393,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	@Nullable
 	public final HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
 		/**
-		 * 1、调用具体的实现去获取 handler(controller)
+		 * 1、调用具体的实现去获取 handler(可以看成是 controller)，具体类是 HandlerMethod
 		 * AbstractUrlHandlerMapping#getHandlerInternal
 		 * uri 得到 method 处理类
 		 */
@@ -423,7 +423,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 			logger.debug("Mapped to " + executionChain.getHandler());
 		}
 
-		// 处理跨越的
+		// 处理跨域的
 		if (hasCorsConfigurationSource(handler) || CorsUtils.isPreFlightRequest(request)) {
 			CorsConfiguration config = (this.corsConfigurationSource != null ? this.corsConfigurationSource.getCorsConfiguration(request) : null);
 			CorsConfiguration handlerConfig = getCorsConfiguration(handler, request);
