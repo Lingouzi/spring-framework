@@ -540,7 +540,12 @@ public class DispatcherServlet extends FrameworkServlet {
      */
     @Override
     protected void onRefresh(ApplicationContext context) {
-        initStrategies(context);
+		/**
+		 * 调用来源，org.springframework.web.servlet.FrameworkServlet#initWebApplicationContext()
+		 * 传入的参数是子容器，子容器包含有【controller、view、HandlerMapping】
+		 * 但是发现在源码实际获取 HandlerMapping 的时候，有一个注释说是包含祖先的 contexts
+		 */
+		initStrategies(context);
     }
     
     /**
@@ -663,15 +668,16 @@ public class DispatcherServlet extends FrameworkServlet {
 		this.handlerMappings = null;
 	
 		/**
-		 * 是否查找所有的 handler。默认 true
+		 * 是否允许查找所有的 handler。默认 true
 		 */
 		if (this.detectAllHandlerMappings) {
             // Find all HandlerMappings in the ApplicationContext, including ancestor contexts.
             /**
+			 *******？？？？这里的源码注释说包含了祖先 context？是否是指的父级容器？
              * 从子容器【springmvc】获取所有实现了 HandlerMapping 接口的实现类。
 			 *
 			 * 1、没有加 @EnableWebMvc 注解的时候，且自己没有实现 HanlderMapping 的就会跳到最后使用默认的 HanlderMapping
-			 * 2、如果我们在 springmvc 配置类加入了注解 @EnableWebMvc ，查看这个注解 @Import(DelegatingWebMvcConfiguration.class)
+			 * 2、如果我们在 springmvc 配置类加入了注解 @EnableWebMvc ，查看 @EnableWebMvc 这个注解包含 @Import(DelegatingWebMvcConfiguration.class)
 			 * 导入了 DelegatingWebMvcConfiguration，而它的父类 WebMvcConfigurationSupport 是一个配置类, 配置了
 			 * 1)requestMappingHandlerMapping  用于处理我们的 @RequestMapping
 			 * 2)beanNameHandlerMapping(BeanNameUrlHandlerMapping) 基于 BeanName 映射请求
@@ -728,9 +734,9 @@ public class DispatcherServlet extends FrameworkServlet {
         if (this.handlerMappings == null) {
 			/**
 			 * 没有使用 @EnableWebMvc 注解，进入默认方法，得到了 3 个默认的 HandlerMapping
-			 * BeanNameUrlHandlerMapping：参考：https://www.cnblogs.com/EasonJim/p/7482805.html
-			 * RequestMappingHandlerMapping、
-			 * RouterFunctionMapping
+			 * BeanNameUrlHandlerMapping（实现接口的 controller）
+			 * RequestMappingHandlerMapping（基于注解的 controller）
+			 * RouterFunctionMapping（Spring5.0 的 WebFlux 加入的，先忽略）
 			 */
 			this.handlerMappings = getDefaultStrategies(context, HandlerMapping.class);
             if (logger.isTraceEnabled()) {
@@ -989,6 +995,7 @@ public class DispatcherServlet extends FrameworkServlet {
             for (String className : classNames) {
                 try {
                     Class<?> clazz = ClassUtils.forName(className, DispatcherServlet.class.getClassLoader());
+                    // 关键方法
                     Object strategy = createDefaultStrategy(context, clazz);
                     strategies.add((T) strategy);
                 } catch (ClassNotFoundException ex) {

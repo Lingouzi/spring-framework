@@ -216,9 +216,11 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 		 */
 		for (String beanName : getCandidateBeanNames()) {
 			if (!beanName.startsWith(SCOPED_TARGET_NAME_PREFIX)) {
+				// 关键
 				processCandidateBean(beanName);
 			}
 		}
+		// 打印日志，显示一下注册了多少 HandlerMethod 数量
 		handlerMethodsInitialized(getHandlerMethods());
 	}
 	
@@ -258,6 +260,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 				logger.trace("Could not resolve type for bean '" + beanName + "'", ex);
 			}
 		}
+		// isHandler 判定条件：是否有 Controller 或者 RequestMapping 注解
 		if (beanType != null && isHandler(beanType)) {
 			/**
 			 * 通过 Class 对象判断是不是一个 controller 对象
